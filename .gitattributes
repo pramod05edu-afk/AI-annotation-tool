@@ -1,0 +1,5 @@
+# Normalize line endings so files built into Linux containers never get Windows CRLF
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.jpeg binary
