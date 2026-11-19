@@ -35,10 +35,12 @@ Browser ──► frontend (nginx) ──/api──► backend (FastAPI)
 
 ```bash
 # Backend (Python 3.11, uv)
+docker compose up -d postgres storage   # API tests use a real PostgreSQL (host port 5433)
 cd backend
 uv sync
-uv run pytest
+uv run pytest                            # creates and migrates the annotator_test database
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
+uv run alembic revision --autogenerate -m "describe change"   # after changing app/models.py
 
 # Frontend (Node)
 cd frontend
@@ -48,6 +50,24 @@ npm run lint && npm run build
 ```
 
 Install the git hooks once: `uvx pre-commit install`.
+
+The database is exposed on host port **5433** (not 5432), so it does not clash with a locally
+installed PostgreSQL.
+
+## API overview
+
+Interactive docs: http://localhost:3000/api/docs
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/health` | Database and storage status |
+| `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/{id}` | Projects and their label classes |
+| `POST /api/projects/{id}/images` | Upload images (validated by content: PNG/JPEG/WEBP, size limit) |
+| `GET /api/projects/{id}/images?status=` | List images with annotation counts |
+| `GET/PATCH/DELETE /api/images/{id}`, `GET /api/images/{id}/file` | Image details, status, file stream |
+| `GET/PUT /api/images/{id}/annotations` | Load / replace all annotations of an image (boxes, polygons) |
+| `GET/POST /api/models`, `POST /api/models/{id}/activate` | Model registry (one active model per task) |
+| `POST /api/logs` | Interaction events for the manual-vs-assisted effort study |
 
 ## Dataset
 

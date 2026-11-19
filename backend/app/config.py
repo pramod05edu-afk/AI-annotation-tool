@@ -12,7 +12,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    database_url: str = "postgresql+psycopg://annotator:annotator@localhost:5432/annotator"
+    # Default = the Docker Compose database as seen from your PC (host port 5433).
+    database_url: str = "postgresql+psycopg://annotator:annotator@localhost:5433/annotator"
 
     s3_endpoint_url: str = "http://localhost:8333"
     s3_access_key: str = "annotator"

@@ -8,7 +8,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI
 
 from app import __version__
-from app.routers import health
+from app.routers import annotations, health, images, logs, model_versions, projects
 from app.storage import get_storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,4 +37,12 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-app.include_router(health.router, prefix="/api")
+for router in (
+    health.router,
+    projects.router,
+    images.router,
+    annotations.router,
+    model_versions.router,
+    logs.router,
+):
+    app.include_router(router, prefix="/api")

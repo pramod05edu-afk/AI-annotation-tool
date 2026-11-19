@@ -4,6 +4,7 @@ Images live here, not in the database: databases are bad at large binary blobs,
 and S3-style storage is how real ML pipelines keep their data.
 """
 
+from collections.abc import Iterator
 from functools import lru_cache
 from typing import Any
 
@@ -61,6 +62,49 @@ class Storage:
             return True
         except (BotoCoreError, ClientError):
             return False
+
+    # ---------- object operations ----------
+
+    def put(self, key: str, data: bytes, content_type: str) -> None:
+        """Store bytes under `key` (overwrites an existing object)."""
+        self.client.put_object(Bucket=self.bucket, Key=key, Body=data, ContentType=content_type)
+
+    def get(self, key: str) -> bytes:
+        """Read a whole object into memory (fine for images of a few MB)."""
+        response = self.client.get_object(Bucket=self.bucket, Key=key)
+        data: bytes = response["Body"].read()
+        return data
+
+    def stream(self, key: str) -> tuple[Iterator[bytes], int | None]:
+        """Return (chunk iterator, size in bytes) so large files never load fully into memory.
+        Raises ObjectNotFoundError if the key does not exist."""
+        try:
+            response = self.client.get_object(Bucket=self.bucket, Key=key)
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                raise ObjectNotFoundError(key) from error
+            raise
+        chunks: Iterator[bytes] = response["Body"].iter_chunks(chunk_size=64 * 1024)
+        return chunks, response.get("ContentLength")
+
+    def delete(self, key: str) -> None:
+        self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every object whose key starts with `prefix` (e.g. a whole project).
+        Returns how many objects were deleted."""
+        deleted = 0
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            keys = [{"Key": obj["Key"]} for obj in page.get("Contents", [])]
+            if keys:  # the S3 API accepts at most 1000 keys per call; one page is <= 1000
+                self.client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})
+                deleted += len(keys)
+        return deleted
+
+
+class ObjectNotFoundError(Exception):
+    """The requested storage key does not exist."""
 
 
 @lru_cache
