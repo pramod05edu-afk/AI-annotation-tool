@@ -8,7 +8,9 @@ from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import FastAPI
 
 from app import __version__
-from app.routers import annotations, health, images, logs, model_versions, projects
+from app.config import get_settings
+from app.ml.manager import get_models
+from app.routers import ai, annotations, health, images, logs, model_versions, projects
 from app.storage import get_storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -24,7 +26,11 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     except (BotoCoreError, ClientError):
         # Keep running: /api/health will report storage as unavailable.
         logger.exception("Could not prepare the storage bucket")
-    # Phase 4: load the AI models here, once, instead of on every request.
+    settings = get_settings()
+    if settings.load_models:
+        # Load the AI models once, in the background: the API is usable immediately and the
+        # AI endpoints answer 503 "still loading" until the models are ready.
+        get_models().start_loading(settings)
     yield
 
 
@@ -44,5 +50,6 @@ for router in (
     annotations.router,
     model_versions.router,
     logs.router,
+    ai.router,
 ):
     app.include_router(router, prefix="/api")

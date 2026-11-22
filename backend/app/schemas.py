@@ -4,7 +4,14 @@ and returns a clear 422 error when something is wrong, before our code even runs
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StringConstraints,
+    ValidationInfo,
+    field_validator,
+)
 
 from app.models import AnnotationMode, AnnotationSource, ImageStatus, ModelTask
 
@@ -169,3 +176,60 @@ class LogBatch(BaseModel):
 
 class LogBatchResult(BaseModel):
     inserted: int
+
+
+# ---------- AI assistance ----------
+
+
+class ModelSlotStatus(BaseModel):
+    state: Literal["disabled", "loading", "ready", "failed"]
+    name: str | None = None
+    model_version_id: int | None = None
+    error: str | None = None
+
+
+class AiStatus(BaseModel):
+    detector: ModelSlotStatus
+    segmenter: ModelSlotStatus
+
+
+class SuggestRequest(BaseModel):
+    # Only boxes the model is at least this sure about. Lower = more boxes, more false alarms.
+    conf: float = Field(default=0.25, ge=0.01, le=0.99)
+
+
+class Suggestion(BaseModel):
+    class_name: str
+    bbox: tuple[float, float, float, float]  # x_min, y_min, x_max, y_max (image pixels)
+    score: float
+
+
+class SuggestResult(BaseModel):
+    model_version_id: int | None
+    latency_ms: float
+    suggestions: list[Suggestion]
+    # Model classes that are not project classes, with how many boxes were dropped.
+    ignored: dict[str, int]
+
+
+class SegmentRequest(BaseModel):
+    points: list[tuple[float, float]] = Field(min_length=1, max_length=20)
+    labels: list[Literal[0, 1]]  # 1 = "this is the object", 0 = "this is NOT the object"
+
+    @field_validator("labels")
+    @classmethod
+    def _labels_match_points(cls, labels: list[int], info: ValidationInfo) -> list[int]:
+        points = info.data.get("points")
+        if points is not None and len(points) != len(labels):
+            raise ValueError("one label per point is required")
+        if 1 not in labels:
+            raise ValueError("at least one point must be on the object (label 1)")
+        return labels
+
+
+class SegmentResult(BaseModel):
+    model_version_id: int | None
+    latency_ms: float
+    points: list[tuple[float, float]]  # polygon outline in image pixels
+    bbox: tuple[float, float, float, float]
+    score: float

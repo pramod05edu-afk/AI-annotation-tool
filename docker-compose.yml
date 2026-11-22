@@ -58,8 +58,13 @@ services:
       S3_SECRET_KEY: ${S3_SECRET_KEY:-annotator-secret}
       S3_BUCKET: ${S3_BUCKET:-annotations}
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-20}
+      WEIGHTS_DIR: /app/weights
+      DETECTOR_WEIGHTS: ${DETECTOR_WEIGHTS:-yolo11n_helmet_openvino_model}
+      OMP_NUM_THREADS: "4" # match the CPU limit below (PyTorch would otherwise use all host cores)
     volumes:
-      - weights:/app/weights # model weights survive rebuilds
+      # The repo's weights/ folder (git-ignored): put the trained detector here.
+      # MobileSAM is downloaded into it automatically on the first start.
+      - ./weights:/app/weights
     ports:
       - "8000:8000"
     depends_on:
@@ -82,4 +87,3 @@ services:
 volumes:
   pgdata:
   storagedata:
-  weights:

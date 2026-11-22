@@ -19,7 +19,13 @@ export type BoxShape = ShapeBase & { kind: 'box'; box: Box }
 export type PolygonShape = ShapeBase & { kind: 'polygon'; points: Point[] }
 export type Shape = BoxShape | PolygonShape
 
-export type Tool = 'select' | 'box' | 'polygon'
+export type Tool = 'select' | 'box' | 'polygon' | 'magic'
+
+/** A magic-click point: label 1 = "this is the object", 0 = "this is not the object". */
+export interface MagicPoint {
+  point: Point
+  label: 0 | 1
+}
 export interface View {
   scale: number // zoom: screen pixels per image pixel
   x: number // pan: where the image's top-left corner is on screen

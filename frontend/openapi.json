@@ -1,6 +1,22 @@
 {
   "components": {
     "schemas": {
+      "AiStatus": {
+        "properties": {
+          "detector": {
+            "$ref": "#/components/schemas/ModelSlotStatus"
+          },
+          "segmenter": {
+            "$ref": "#/components/schemas/ModelSlotStatus"
+          }
+        },
+        "required": [
+          "detector",
+          "segmenter"
+        ],
+        "title": "AiStatus",
+        "type": "object"
+      },
       "AnnotationIn": {
         "properties": {
           "class_name": {
@@ -408,6 +424,58 @@
         "title": "LogEventIn",
         "type": "object"
       },
+      "ModelSlotStatus": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "model_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "state": {
+            "enum": [
+              "disabled",
+              "loading",
+              "ready",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state"
+        ],
+        "title": "ModelSlotStatus",
+        "type": "object"
+      },
       "ModelTask": {
         "enum": [
           "detect",
@@ -637,6 +705,208 @@
         "title": "ProjectUpdate",
         "type": "object"
       },
+      "SegmentRequest": {
+        "properties": {
+          "labels": {
+            "items": {
+              "enum": [
+                0,
+                1
+              ],
+              "type": "integer"
+            },
+            "title": "Labels",
+            "type": "array"
+          },
+          "points": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Points",
+            "type": "array"
+          }
+        },
+        "required": [
+          "points",
+          "labels"
+        ],
+        "title": "SegmentRequest",
+        "type": "object"
+      },
+      "SegmentResult": {
+        "properties": {
+          "bbox": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Bbox",
+            "type": "array"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "number"
+          },
+          "model_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version Id"
+          },
+          "points": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Points",
+            "type": "array"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "model_version_id",
+          "latency_ms",
+          "points",
+          "bbox",
+          "score"
+        ],
+        "title": "SegmentResult",
+        "type": "object"
+      },
+      "SuggestRequest": {
+        "properties": {
+          "conf": {
+            "default": 0.25,
+            "maximum": 0.99,
+            "minimum": 0.01,
+            "title": "Conf",
+            "type": "number"
+          }
+        },
+        "title": "SuggestRequest",
+        "type": "object"
+      },
+      "SuggestResult": {
+        "properties": {
+          "ignored": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Ignored",
+            "type": "object"
+          },
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "number"
+          },
+          "model_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version Id"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/Suggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "model_version_id",
+          "latency_ms",
+          "suggestions",
+          "ignored"
+        ],
+        "title": "SuggestResult",
+        "type": "object"
+      },
+      "Suggestion": {
+        "properties": {
+          "bbox": {
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Bbox",
+            "type": "array"
+          },
+          "class_name": {
+            "title": "Class Name",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "class_name",
+          "bbox",
+          "score"
+        ],
+        "title": "Suggestion",
+        "type": "object"
+      },
       "UploadRejected": {
         "properties": {
           "filename": {
@@ -727,6 +997,28 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/ai/status": {
+      "get": {
+        "description": "Which models are loaded; the UI enables the AI buttons from this.",
+        "operationId": "ai_status_api_ai_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AiStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ai Status",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
     "/api/health": {
       "get": {
         "operationId": "health_api_health_get",
@@ -1014,6 +1306,148 @@
         "summary": "Get Image File",
         "tags": [
           "images"
+        ]
+      }
+    },
+    "/api/images/{image_id}/segment": {
+      "post": {
+        "description": "Outline the object under the clicks (label 1 = object, 0 = not the object).",
+        "operationId": "segment_object_api_images__image_id__segment_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SegmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SegmentResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Segment Object",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/images/{image_id}/segment/prepare": {
+      "post": {
+        "description": "Encode the image in advance (the slow part of SAM), called when an image is opened.",
+        "operationId": "prepare_segmentation_api_images__image_id__segment_prepare_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Prepare Segmentation",
+        "tags": [
+          "ai"
+        ]
+      }
+    },
+    "/api/images/{image_id}/suggest": {
+      "post": {
+        "description": "Pre-label an image: the detector's boxes, renamed to the project's class names.",
+        "operationId": "suggest_boxes_api_images__image_id__suggest_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuggestRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuggestResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Suggest Boxes",
+        "tags": [
+          "ai"
         ]
       }
     },

@@ -8,14 +8,29 @@ dependencies = [
     "alembic>=1.20.1",
     "boto3>=1.44.5",
     "fastapi>=0.164.0",
+    "openvino==2026.4.1", # fast CPU inference for the exported detector
     "pgvector>=0.5.1",
     "pillow>=13.0.0",
     "psycopg[binary]>=3.3.9",
     "pydantic-settings>=2.16.3",
     "python-multipart>=0.0.34",
     "sqlalchemy>=2",
+    "torch>=2.9",  # CPU-only build, see [tool.uv.sources]
+    "torchvision>=0.24",
+    "ultralytics==8.4.215", # same version as the Colab training notebook
     "uvicorn[standard]>=0.54.0",
 ]
+
+# PyTorch from its CPU-only package index: the CUDA build is ~2.5 GB larger and unused here
+# (the app runs on CPU; training happens on Colab).
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling"]
@@ -42,7 +57,7 @@ strict = true
 plugins = ["pydantic.mypy"]
 
 [[tool.mypy.overrides]]
-module = ["boto3.*", "botocore.*"]
+module = ["boto3.*", "botocore.*", "ultralytics.*", "cv2.*", "torch.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
