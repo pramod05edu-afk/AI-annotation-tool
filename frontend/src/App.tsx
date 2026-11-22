@@ -1,54 +1,61 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useCallback } from 'react'
+import { Link, Route, Routes } from 'react-router'
 
-/** Shape of the backend's GET /api/health response. */
-interface Health {
-  status: 'ok' | 'degraded'
-  database: boolean
-  storage: boolean
-}
+import { api, unwrap } from './api/client'
+import { useAsync } from './hooks'
+import ProjectPage from './pages/ProjectPage'
+import ProjectsPage from './pages/ProjectsPage'
 
-type LoadState =
-  { kind: 'loading' } | { kind: 'loaded'; health: Health } | { kind: 'error'; message: string }
+// The annotator includes the canvas library (Konva, ~300 kB): load it only when it is opened.
+const AnnotatorPage = lazy(() => import('./pages/AnnotatorPage'))
 
-function StatusRow({ label, ok }: { label: string; ok: boolean }) {
+/** Small dot in the header: is the backend (database + storage) healthy? */
+function HealthDot() {
+  const load = useCallback(async () => unwrap(await api.GET('/api/health')), [])
+  const { data, error } = useAsync(load)
+  const ok = data?.status === 'ok'
+  const title = error
+    ? `Backend not reachable (${error})`
+    : data
+      ? `Database ${data.database ? 'ok' : 'down'} · storage ${data.storage ? 'ok' : 'down'}`
+      : 'Checking backend…'
   return (
-    <li className={ok ? 'ok' : 'bad'}>
-      <span>{ok ? '✓' : '✗'}</span> {label}
-    </li>
+    <span className={`health ${data ? (ok ? 'ok' : 'bad') : error ? 'bad' : ''}`} title={title}>
+      ● {data ? (ok ? 'Backend ok' : 'Backend degraded') : error ? 'Backend offline' : '…'}
+    </span>
   )
 }
 
 export default function App() {
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then(async (response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        setState({ kind: 'loaded', health: (await response.json()) as Health })
-      })
-      .catch((error: unknown) => {
-        setState({ kind: 'error', message: error instanceof Error ? error.message : 'unknown' })
-      })
-  }, [])
-
   return (
-    <main>
-      <h1>AI Annotation Tool</h1>
-      <p className="subtitle">AI-assisted labeling for object detection datasets.</p>
-
-      <section className="card">
-        <h2>System status</h2>
-        {state.kind === 'loading' && <p>Checking the backend…</p>}
-        {state.kind === 'error' && <p className="bad">Backend not reachable ({state.message}).</p>}
-        {state.kind === 'loaded' && (
-          <ul className="status">
-            <StatusRow label="API" ok />
-            <StatusRow label="Database (PostgreSQL)" ok={state.health.database} />
-            <StatusRow label="Image storage (S3 / SeaweedFS)" ok={state.health.storage} />
-          </ul>
-        )}
-      </section>
-    </main>
+    <div className="app">
+      <header className="topbar">
+        <Link to="/" className="brand">
+          AI Annotation Tool
+        </Link>
+        <HealthDot />
+      </header>
+      <Routes>
+        <Route path="/" element={<ProjectsPage />} />
+        <Route path="/projects/:projectId" element={<ProjectPage />} />
+        <Route
+          path="/projects/:projectId/annotate/:imageId"
+          element={
+            <Suspense fallback={<p className="muted page">Loading annotator…</p>}>
+              <AnnotatorPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="*"
+          element={
+            <main className="page">
+              <h1>Page not found</h1>
+              <Link to="/">Back to projects</Link>
+            </main>
+          }
+        />
+      </Routes>
+    </div>
   )
 }
