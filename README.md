@@ -79,6 +79,12 @@ cd backend
 uv run python scripts/prepare_dataset.py --src D:/datasets/hard-hat-detection --out D:/datasets/hardhat-prepared
 ```
 
+## Model training
+
+The detector is fine-tuned on Google Colab (free T4 GPU) with
+[eval/colab_finetune.ipynb](eval/colab_finetune.ipynb), tracked with MLflow and exported to
+OpenVINO. Step-by-step guide: [docs/training.md](docs/training.md).
+
 ## Project documents
 
 - [Project plan](docs/PROJECT_PLAN.md)
