@@ -2,7 +2,7 @@
  * Annotate one image: draw / edit / delete shapes, switch images, autosave, mark done.
  *
  * Structure (each level only renders once its data is loaded):
- *   AnnotatorPage   project + image list, current tool and class (kept when switching images)
+ *   AnnotatorPage   project + image list, tool, class, mode, AI status (kept across images)
  *   └─ ImageLoader  this image's file, status and saved annotations   (remounted per image)
  *      └─ Editor    the editable shapes, undo history, saving, keyboard shortcuts
  */
@@ -10,7 +10,9 @@ import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import {
+  type AiStatus,
   api,
+  errorMessage,
   type ImageInfo,
   type ImageStatus,
   imageFileUrl,
@@ -21,7 +23,9 @@ import AnnotationCanvas from '../annotator/AnnotationCanvas'
 import {
   classColor,
   fromApi,
+  type MagicPoint,
   markEdited,
+  newBox,
   newPolygon,
   type Point,
   type Shape,
@@ -29,15 +33,19 @@ import {
   type Tool,
   type View,
 } from '../annotator/shapes'
-import { useAsync, useHtmlImage } from '../hooks'
+import { useAiStatus } from '../annotator/useAiStatus'
+import { useAsync, useHtmlImage, usePersistentState } from '../hooks'
 
 const AUTOSAVE_DELAY_MS = 800
 const MAX_UNDO = 100
 
-const TOOLS: { tool: Tool; key: string; label: string }[] = [
+export type Mode = 'manual' | 'assisted'
+
+const TOOLS: { tool: Tool; key: string; label: string; assistedOnly?: boolean }[] = [
   { tool: 'select', key: 'V', label: 'Select' },
   { tool: 'box', key: 'B', label: 'Box' },
   { tool: 'polygon', key: 'P', label: 'Polygon' },
+  { tool: 'magic', key: 'M', label: '🪄 Magic', assistedOnly: true },
 ]
 
 const SHORTCUTS: [string, string][] = [
@@ -52,6 +60,30 @@ const SHORTCUTS: [string, string][] = [
   ['Enter', 'mark done and go to next image'],
 ]
 
+const AI_SHORTCUTS: [string, string][] = [
+  ['S', 'suggest boxes (AI)'],
+  ['M', 'magic tool: click = object, Shift / right click = not object'],
+  ['Enter', 'accept the magic outline'],
+]
+
+/** Plain numbers from the API -> a fixed 4-tuple box. */
+const toBox = ([x1 = 0, y1 = 0, x2 = 0, y2 = 0]: number[]): [number, number, number, number] => [
+  x1,
+  y1,
+  x2,
+  y2,
+]
+
+/** Why an AI button is disabled, for its tooltip. */
+function modelHint(ai: AiStatus | undefined, which: 'detector' | 'segmenter') {
+  const slot = ai?.[which]
+  if (!slot) return 'Checking the AI models…'
+  if (slot.state === 'loading') return `The ${which} is loading…`
+  if (slot.state === 'failed')
+    return `The ${which} is unavailable: ${slot.error ?? 'unknown error'}`
+  return `The ${which} is ${slot.state}`
+}
+
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
 
@@ -65,6 +97,11 @@ interface EditorProps {
   setTool: (tool: Tool) => void
   activeClass: string
   setActiveClass: (name: string) => void
+  mode: Mode
+  setMode: (mode: Mode) => void
+  confidence: number
+  setConfidence: (value: number) => void
+  ai: AiStatus | undefined
 }
 
 function Editor({ project, image, htmlImage, initialShapes, position, ...p }: EditorProps) {
@@ -77,6 +114,20 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   const [view, setView] = useState<View | null>(null)
   const [panning, setPanning] = useState(false)
   const [status, setStatus] = useState<ImageStatus>(image.status)
+
+  // AI assistance
+  const assisted = p.mode === 'assisted'
+  const detectorReady = p.ai?.detector.state === 'ready'
+  const segmenterReady = p.ai?.segmenter.state === 'ready'
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiMessage, setAiMessage] = useState<string>()
+  const [magicPoints, setMagicPoints] = useState<MagicPoint[]>([])
+  const [magicPreview, setMagicPreview] = useState<{
+    points: Point[]
+    score: number
+    modelVersionId: number | null
+  } | null>(null)
+  const magicRequest = useRef(0) // only the newest magic request may update the preview
 
   // Saving: every change bumps `version`; a save records which version it stored.
   const [version, setVersion] = useState(0)
@@ -95,16 +146,18 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   // ---------- editing (every change goes through these) ----------
 
   const bump = () => setVersion((v) => v + 1)
-  const remember = () => setHistory((h) => [...h.slice(-(MAX_UNDO - 1)), shapes])
+  // `latest.current.shapes` (not `shapes`): also correct when called after an `await`.
+  const remember = () => setHistory((h) => [...h.slice(-(MAX_UNDO - 1)), latest.current.shapes])
 
   function commit(next: Shape[]) {
     remember()
     setShapes(next)
+    latest.current = { ...latest.current, shapes: next }
     bump()
   }
 
   function create(shape: Shape) {
-    commit([...shapes, shape])
+    commit([...latest.current.shapes, shape])
     setSelectedId(shape.id)
   }
 
@@ -136,7 +189,14 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   function chooseTool(tool: Tool) {
     p.setTool(tool)
     setDraft([])
+    clearMagic()
     if (tool !== 'select') setSelectedId(null)
+  }
+
+  function chooseMode(mode: Mode) {
+    p.setMode(mode)
+    setAiMessage(undefined)
+    if (mode === 'manual' && p.tool === 'magic') chooseTool('box')
   }
 
   function chooseClass(className: string) {
@@ -150,6 +210,114 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     setDraft([])
     return true
   }
+
+  // ---------- AI assistance ----------
+
+  /** Ask the detector for boxes; they replace earlier, untouched AI boxes. */
+  async function suggest() {
+    if (!assisted || !detectorReady || aiBusy) return
+    setAiBusy(true)
+    setAiMessage('Detecting…')
+    try {
+      const result = unwrap(
+        await api.POST('/api/images/{image_id}/suggest', {
+          ...annotationsPath,
+          body: { conf: p.confidence },
+        }),
+      )
+      const suggestions: Shape[] = result.suggestions.map((s) => ({
+        ...newBox(toBox(s.bbox), s.class_name),
+        source: 'ai',
+        score: s.score,
+        modelVersionId: result.model_version_id,
+      }))
+      // Keep everything the human made or changed; replace only untouched AI boxes.
+      const kept = latest.current.shapes.filter((s) => !(s.source === 'ai' && s.kind === 'box'))
+      commit([...kept, ...suggestions])
+      const ignored = Object.entries(result.ignored)
+        .map(([name, n]) => `${n} × ${name}`)
+        .join(', ')
+      setAiMessage(
+        `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} · ` +
+          `${Math.round(result.latency_ms)} ms${ignored ? ` · ignored: ${ignored}` : ''}`,
+      )
+    } catch (e) {
+      setAiMessage(`⚠ ${errorMessage(e)}`)
+    } finally {
+      setAiBusy(false)
+    }
+  }
+
+  function clearMagic() {
+    magicRequest.current += 1 // results still in flight are ignored
+    setMagicPoints([])
+    setMagicPreview(null)
+  }
+
+  async function magicClick(point: Point, label: 0 | 1) {
+    if (!segmenterReady) {
+      setAiMessage('⚠ The segmentation model is not ready yet')
+      return
+    }
+    const points = [...magicPoints, { point, label }]
+    setMagicPoints(points)
+    if (!points.some((m) => m.label === 1)) return // SAM needs at least one "object" click
+    const request = ++magicRequest.current
+    setAiMessage('Segmenting…')
+    try {
+      const result = unwrap(
+        await api.POST('/api/images/{image_id}/segment', {
+          ...annotationsPath,
+          body: { points: points.map((m) => m.point), labels: points.map((m) => m.label) },
+        }),
+      )
+      if (request !== magicRequest.current) return
+      setMagicPreview({
+        points: result.points.map(([x = 0, y = 0]): Point => [x, y]),
+        score: result.score,
+        modelVersionId: result.model_version_id,
+      })
+      setAiMessage(
+        `Outline ready (${Math.round(result.latency_ms)} ms) · Enter = accept, ` +
+          'click to add, Shift + click to remove areas, Esc = cancel',
+      )
+    } catch (e) {
+      if (request === magicRequest.current) setAiMessage(`⚠ ${errorMessage(e)}`)
+    }
+  }
+
+  function acceptMagic() {
+    if (!magicPreview) return false
+    create({
+      ...newPolygon(magicPreview.points, p.activeClass),
+      source: 'ai',
+      score: magicPreview.score,
+      modelVersionId: magicPreview.modelVersionId,
+    })
+    clearMagic()
+    setAiMessage(undefined)
+    return true
+  }
+
+  // When an image opens in assisted mode: pre-label it once (only if it has no annotations
+  // yet) and let SAM encode it in the background, so the first magic click is fast.
+  const assistedOnce = useRef({ prepared: false, suggested: false })
+  const autoAssist = useEffectEvent(() => {
+    if (!assisted) return
+    const once = assistedOnce.current
+    if (segmenterReady && !once.prepared) {
+      once.prepared = true
+      api.POST('/api/images/{image_id}/segment/prepare', annotationsPath).catch(() => {})
+    }
+    if (detectorReady && !once.suggested && initialShapes.length === 0 && image.status === 'todo') {
+      once.suggested = true
+      void suggest()
+    }
+  })
+  useEffect(() => {
+    const timer = setTimeout(autoAssist, 0) // after the first paint, outside the effect itself
+    return () => clearTimeout(timer)
+  }, [detectorReady, segmenterReady, assisted])
 
   // ---------- saving ----------
 
@@ -249,6 +417,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
       return
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return
+    if (e.key === 'Enter' && p.tool === 'magic' && magicPreview) {
+      e.preventDefault()
+      acceptMagic()
+      return
+    }
 
     const classIndex = Number(e.key) - 1
     if (classIndex >= 0 && classIndex < Math.min(classes.length, 9)) {
@@ -262,6 +435,12 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         return chooseTool('box')
       case 'p':
         return chooseTool('polygon')
+      case 'm':
+        if (assisted) chooseTool('magic')
+        return
+      case 's':
+        void suggest()
+        return
       case 'f':
         return setView(null)
       case 'delete':
@@ -269,7 +448,10 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         if (selectedId) remove(selectedId)
         return
       case 'escape':
-        if (draft.length > 0) setDraft([])
+        if (magicPoints.length > 0) {
+          clearMagic()
+          setAiMessage(undefined)
+        } else if (draft.length > 0) setDraft([])
         else setSelectedId(null)
         return
       case 'enter':
@@ -332,7 +514,22 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         </button>
 
         <span className="separator" />
-        {TOOLS.map(({ tool, key, label }) => (
+        <div className="segmented" role="group" aria-label="Annotation mode">
+          {(['manual', 'assisted'] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={p.mode === m ? 'active' : ''}
+              onClick={() => chooseMode(m)}
+              title={m === 'manual' ? 'Label by hand only' : 'AI suggestions and magic click'}
+            >
+              {m === 'manual' ? 'Manual' : 'Assisted'}
+            </button>
+          ))}
+        </div>
+
+        <span className="separator" />
+        {TOOLS.filter((t) => assisted || !t.assistedOnly).map(({ tool, key, label }) => (
           <button
             key={tool}
             type="button"
@@ -359,6 +556,38 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
           </button>
         ))}
 
+        {assisted && (
+          <>
+            <span className="separator" />
+            <button
+              type="button"
+              className="ai-button"
+              onClick={() => void suggest()}
+              disabled={!detectorReady || aiBusy}
+              title={
+                detectorReady ? 'Suggest boxes with the detector (S)' : modelHint(p.ai, 'detector')
+              }
+            >
+              ✨ Suggest <kbd>S</kbd>
+            </button>
+            <label
+              className="confidence"
+              title="Only suggestions the model is at least this sure about"
+            >
+              min. confidence
+              <input
+                type="range"
+                min={0.05}
+                max={0.95}
+                step={0.05}
+                value={p.confidence}
+                onChange={(e) => p.setConfidence(Number(e.target.value))}
+              />
+              <output>{p.confidence.toFixed(2)}</output>
+            </label>
+          </>
+        )}
+
         <span className="separator" />
         <button type="button" onClick={undo} disabled={history.length === 0} title="Undo (Ctrl+Z)">
           Undo
@@ -368,6 +597,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         </button>
 
         <span className="spacer" />
+        {assisted && aiMessage && (
+          <span className={`ai-message ${aiMessage.startsWith('⚠') ? 'error' : ''}`}>
+            {aiMessage}
+          </span>
+        )}
         <span className={`save-state ${saveError ? 'error' : ''}`}>{saveLabel}</span>
         <span className={`badge ${status}`}>{status.replace('_', ' ')}</span>
         {status === 'done' ? (
@@ -400,6 +634,9 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
           onCreate={create}
           onEditStart={remember}
           onEdit={edit}
+          magicPoints={magicPoints}
+          magicPreview={magicPreview?.points ?? null}
+          onMagicClick={(point, label) => void magicClick(point, label)}
         />
 
         <aside className="sidebar">
@@ -433,6 +670,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
                 <span className="muted small">
                   {s.kind}
                   {s.source !== 'manual' && ` · ${s.source.replace('_', ' ')}`}
+                  {s.source === 'ai' && s.score != null && ` ${s.score.toFixed(2)}`}
                 </span>
                 <button
                   type="button"
@@ -451,8 +689,8 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
 
           <h3>Shortcuts</h3>
           <dl className="shortcuts">
-            {SHORTCUTS.map(([keys, action]) => (
-              <div key={keys}>
+            {[...SHORTCUTS, ...(assisted ? AI_SHORTCUTS : [])].map(([keys, action]) => (
+              <div key={keys + action}>
                 <dt>{keys}</dt>
                 <dd>{action}</dd>
               </div>
@@ -492,6 +730,10 @@ export default function AnnotatorPage() {
   const imageId = Number(params.imageId)
   const [tool, setTool] = useState<Tool>('box')
   const [activeClass, setActiveClass] = useState<string>()
+  // Remembered in this browser; the effort study switches the mode per session.
+  const [mode, setMode] = usePersistentState<Mode>('annotator.mode', 'assisted')
+  const [confidence, setConfidence] = usePersistentState('annotator.confidence', 0.25)
+  const ai = useAiStatus()
 
   const load = useCallback(async () => {
     const path = { params: { path: { project_id: projectId } } }
@@ -539,6 +781,11 @@ export default function AnnotatorPage() {
           : (project.classes[0] ?? '')
       }
       setActiveClass={setActiveClass}
+      mode={mode}
+      setMode={setMode}
+      confidence={confidence}
+      setConfidence={setConfidence}
+      ai={ai}
     />
   )
 }

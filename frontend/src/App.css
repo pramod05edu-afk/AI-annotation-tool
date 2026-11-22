@@ -539,3 +539,57 @@ select {
     border-top: 1px solid var(--border);
   }
 }
+
+/* ---------- AI assistance ---------- */
+
+.segmented {
+  display: inline-flex;
+}
+
+.segmented button {
+  border-radius: 0;
+}
+
+.segmented button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.segmented button:last-child {
+  border-radius: 0 6px 6px 0;
+  margin-left: -1px;
+}
+
+.ai-button:not(:disabled) {
+  border-color: #8a63d2;
+}
+
+.confidence {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.confidence input {
+  width: 90px;
+  padding: 0;
+}
+
+.confidence output {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.ai-message {
+  font-size: 0.8rem;
+  color: #8a63d2;
+  max-width: 420px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-message.error {
+  color: var(--bad);
+}

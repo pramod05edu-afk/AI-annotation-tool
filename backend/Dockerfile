@@ -21,6 +21,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # ---- Stage 2: small runtime image, running as a non-root user ----
 FROM python:3.11-slim
 
+# OpenCV (used by Ultralytics) needs these two system libraries.
+RUN apt-get update     && apt-get install -y --no-install-recommends libgl1 libglib2.0-0     && rm -rf /var/lib/apt/lists/*
+
 RUN useradd --create-home --uid 1000 app \
     && mkdir -p /app/weights \
     && chown app:app /app/weights
@@ -34,7 +37,7 @@ ENV PATH="/app/.venv/bin:$PATH" \
 USER app
 EXPOSE 8000
 
-HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=5 \
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health', timeout=4)"
 
 # Apply database migrations, then start the API.

@@ -27,6 +27,7 @@ import {
   clampPoint,
   isBigEnough,
   newBox,
+  type MagicPoint,
   newPolygon,
   type Point,
   type PolygonShape,
@@ -56,6 +57,9 @@ export interface CanvasProps {
   onCreate: (shape: Shape) => void
   onEditStart: () => void // a drag/resize begins: remember the state for undo
   onEdit: (shape: Shape) => void
+  magicPoints: MagicPoint[] // magic-click tool: the clicks so far
+  magicPreview: Point[] | null // the outline SAM proposes for them
+  onMagicClick: (point: Point, label: 0 | 1) => void
 }
 
 const CLOSE_DISTANCE_PX = 10 // clicking this close (on screen) to the first point closes a polygon
@@ -137,7 +141,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
   }
 
   function onMouseMove() {
-    if (tool === 'select') return // nothing follows the mouse: avoid re-rendering
+    if (tool === 'select' || tool === 'magic') return // nothing follows the mouse: no re-render
     const pt = pointer()
     setCursor(pt ? clampToImage(pt) : null)
   }
@@ -147,6 +151,12 @@ export default function AnnotationCanvas(p: CanvasProps) {
     if (tool === 'select') {
       const target = e.target
       if (target === target.getStage() || target.name() === 'background') p.onSelect(null)
+      return
+    }
+    if (tool === 'magic') {
+      const pt = pointer()
+      // Click = part of the object; Shift + click (or right click) = not part of it.
+      if (pt) p.onMagicClick(clampToImage(pt), e.evt.shiftKey ? 0 : 1)
       return
     }
     if (tool !== 'polygon') return
@@ -161,6 +171,13 @@ export default function AnnotationCanvas(p: CanvasProps) {
     } else {
       p.onDraftChange([...p.draft, clampToImage(pt)])
     }
+  }
+
+  function onContextMenu(e: Konva.KonvaEventObject<PointerEvent>) {
+    e.evt.preventDefault() // no browser menu on the canvas
+    if (tool !== 'magic' || p.panning) return
+    const pt = pointer()
+    if (pt) p.onMagicClick(clampToImage(pt), 0)
   }
 
   function onWheel(e: Konva.KonvaEventObject<WheelEvent>) {
@@ -293,6 +310,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
           onMouseMove={onMouseMove}
           onMouseLeave={() => setCursor(null)}
           onClick={onClick}
+          onContextMenu={onContextMenu}
           onWheel={onWheel}
         >
           <Layer>
@@ -388,6 +406,34 @@ export default function AnnotationCanvas(p: CanvasProps) {
                 ))}
               </>
             )}
+
+            {/* magic click: SAM's proposed outline and the clicks that produced it */}
+            {tool === 'magic' && p.magicPreview && (
+              <Line
+                points={p.magicPreview.flat()}
+                closed
+                stroke={activeColor}
+                strokeWidth={2}
+                strokeScaleEnabled={false}
+                dash={[8, 5]}
+                fill={withAlpha(activeColor, 0.3)}
+                listening={false}
+              />
+            )}
+            {tool === 'magic' &&
+              p.magicPoints.map(({ point: [x, y], label }, i) => (
+                <Circle
+                  key={`magic-${i}`}
+                  x={x}
+                  y={y}
+                  radius={px(6)}
+                  fill={label === 1 ? '#1a9f4b' : '#d93636'}
+                  stroke="white"
+                  strokeWidth={2}
+                  strokeScaleEnabled={false}
+                  listening={false}
+                />
+              ))}
 
             <Transformer
               ref={transformerRef}

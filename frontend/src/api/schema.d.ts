@@ -4,6 +4,26 @@
  */
 
 export interface paths {
+    "/api/ai/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Ai Status
+         * @description Which models are loaded; the UI enables the AI buttons from this.
+         */
+        get: operations["ai_status_api_ai_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -69,6 +89,66 @@ export interface paths {
         get: operations["get_image_file_api_images__image_id__file_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/{image_id}/segment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Segment Object
+         * @description Outline the object under the clicks (label 1 = object, 0 = not the object).
+         */
+        post: operations["segment_object_api_images__image_id__segment_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/{image_id}/segment/prepare": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare Segmentation
+         * @description Encode the image in advance (the slow part of SAM), called when an image is opened.
+         */
+        post: operations["prepare_segmentation_api_images__image_id__segment_prepare_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/{image_id}/suggest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suggest Boxes
+         * @description Pre-label an image: the detector's boxes, renamed to the project's class names.
+         */
+        post: operations["suggest_boxes_api_images__image_id__suggest_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -186,6 +266,11 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AiStatus */
+        AiStatus: {
+            detector: components["schemas"]["ModelSlotStatus"];
+            segmenter: components["schemas"]["ModelSlotStatus"];
+        };
         /** AnnotationIn */
         AnnotationIn: {
             /** Class Name */
@@ -336,6 +421,20 @@ export interface components {
             /** Ts */
             ts?: string | null;
         };
+        /** ModelSlotStatus */
+        ModelSlotStatus: {
+            /** Error */
+            error?: string | null;
+            /** Model Version Id */
+            model_version_id?: number | null;
+            /** Name */
+            name?: string | null;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "disabled" | "loading" | "ready" | "failed";
+        };
         /**
          * ModelTask
          * @enum {string}
@@ -424,6 +523,72 @@ export interface components {
             /** Name */
             name?: string | null;
         };
+        /** SegmentRequest */
+        SegmentRequest: {
+            /** Labels */
+            labels: (0 | 1)[];
+            /** Points */
+            points: [
+                number,
+                number
+            ][];
+        };
+        /** SegmentResult */
+        SegmentResult: {
+            /** Bbox */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ];
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model Version Id */
+            model_version_id: number | null;
+            /** Points */
+            points: [
+                number,
+                number
+            ][];
+            /** Score */
+            score: number;
+        };
+        /** SuggestRequest */
+        SuggestRequest: {
+            /**
+             * Conf
+             * @default 0.25
+             */
+            conf: number;
+        };
+        /** SuggestResult */
+        SuggestResult: {
+            /** Ignored */
+            ignored: {
+                [key: string]: number;
+            };
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model Version Id */
+            model_version_id: number | null;
+            /** Suggestions */
+            suggestions: components["schemas"]["Suggestion"][];
+        };
+        /** Suggestion */
+        Suggestion: {
+            /** Bbox */
+            bbox: [
+                number,
+                number,
+                number,
+                number
+            ];
+            /** Class Name */
+            class_name: string;
+            /** Score */
+            score: number;
+        };
         /** UploadRejected */
         UploadRejected: {
             /** Filename */
@@ -460,6 +625,26 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    ai_status_api_ai_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStatus"];
+                };
+            };
+        };
+    };
     health_api_health_get: {
         parameters: {
             query?: never;
@@ -661,6 +846,105 @@ export interface operations {
                     "image/jpeg": unknown;
                     "image/png": unknown;
                     "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    segment_object_api_images__image_id__segment_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SegmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SegmentResult"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    prepare_segmentation_api_images__image_id__segment_prepare_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    suggest_boxes_api_images__image_id__suggest_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SuggestRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SuggestResult"];
                 };
             };
             /** @description Validation Error */

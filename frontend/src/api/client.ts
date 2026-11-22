@@ -15,6 +15,8 @@ export type ImageStatus = Schemas['ImageStatus']
 export type AnnotationIn = Schemas['AnnotationIn']
 export type AnnotationRead = Schemas['AnnotationRead']
 export type UploadResult = Schemas['UploadResult']
+export type AiStatus = Schemas['AiStatus']
+export type ModelSlotStatus = Schemas['ModelSlotStatus']
 
 export const imageFileUrl = (imageId: number) => `/api/images/${imageId}/file`
 
