@@ -593,3 +593,14 @@ select {
 .ai-message.error {
   color: var(--bad);
 }
+
+.card.export {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.card.export h2 {
+  margin: 0 8px 0 0;
+}

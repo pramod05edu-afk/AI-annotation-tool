@@ -80,6 +80,7 @@ Interactive docs: http://localhost:3000/api/docs
 | `GET/PUT /api/images/{id}/annotations` | Load / replace all annotations of an image (boxes, polygons) |
 | `GET/POST /api/models`, `POST /api/models/{id}/activate` | Model registry (one active model per task) |
 | `POST /api/logs` | Interaction events for the manual-vs-assisted effort study |
+| `GET /api/projects/{id}/export?format=coco\|yolo&scope=all\|done` | Download the dataset as a zip with images (COCO JSON incl. polygons, or YOLO txt + `data.yaml`) |
 | `GET /api/ai/status` | Which AI models are loaded |
 | `POST /api/images/{id}/suggest` | Detector boxes, mapped to the project's classes |
 | `POST /api/images/{id}/segment/prepare`, `POST /api/images/{id}/segment` | MobileSAM: encode the image ahead of time; clicks → polygon |
