@@ -1,0 +1,42 @@
+{
+  "yolo11n": {
+    "model": "yolo11n",
+    "test_images": 600,
+    "map50": 0.9453,
+    "map50_95": 0.6323,
+    "precision": 0.928,
+    "recall": 0.8878,
+    "per_class": {
+      "helmet": {
+        "ap50": 0.9543,
+        "ap50_95": 0.6374
+      },
+      "head": {
+        "ap50": 0.9363,
+        "ap50_95": 0.6272
+      }
+    },
+    "gpu_ms_per_image": 4.23,
+    "params_millions": 2.61
+  },
+  "yolo11s": {
+    "model": "yolo11s",
+    "test_images": 600,
+    "map50": 0.946,
+    "map50_95": 0.6294,
+    "precision": 0.9383,
+    "recall": 0.8819,
+    "per_class": {
+      "helmet": {
+        "ap50": 0.9507,
+        "ap50_95": 0.6297
+      },
+      "head": {
+        "ap50": 0.9413,
+        "ap50_95": 0.6291
+      }
+    },
+    "gpu_ms_per_image": 10.35,
+    "params_millions": 9.43
+  }
+}

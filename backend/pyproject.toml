@@ -67,6 +67,7 @@ testpaths = ["tests"]
 dev = [
     "httpx>=0.28.1",
     "mypy>=2.4.1",
+    "pycocotools>=2.0.8",
     "pytest>=9.2.0",
     "ruff>=0.17.5",
 ]

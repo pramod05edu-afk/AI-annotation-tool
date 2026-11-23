@@ -20,6 +20,7 @@ import {
   unwrap,
 } from '../api/client'
 import AnnotationCanvas from '../annotator/AnnotationCanvas'
+import { logEvent, type LogEventName, type Mode } from '../annotator/interactionLog'
 import {
   classColor,
   fromApi,
@@ -38,8 +39,6 @@ import { useAsync, useHtmlImage, usePersistentState } from '../hooks'
 
 const AUTOSAVE_DELAY_MS = 800
 const MAX_UNDO = 100
-
-export type Mode = 'manual' | 'assisted'
 
 const TOOLS: { tool: Tool; key: string; label: string; assistedOnly?: boolean }[] = [
   { tool: 'select', key: 'V', label: 'Select' },
@@ -156,9 +155,20 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     bump()
   }
 
+  /** Record an action for the effort study (time and number of interactions per image). */
+  const log = (event: LogEventName, payload: Record<string, unknown> = {}) =>
+    logEvent(image.id, p.mode, event, payload)
+
   function create(shape: Shape) {
     commit([...latest.current.shapes, shape])
     setSelectedId(shape.id)
+    log('annotation_created', { kind: shape.kind, source: shape.source, tool: p.tool })
+  }
+
+  /** A drag / resize / vertex move begins: one undo step and one "edit" interaction. */
+  function startEdit(shape: Shape) {
+    remember()
+    log('annotation_edited', { kind: shape.kind, source: shape.source })
   }
 
   function edit(shape: Shape) {
@@ -169,17 +179,23 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   }
 
   function remove(id: string) {
+    const shape = shapes.find((s) => s.id === id)
+    if (shape) log('annotation_deleted', { kind: shape.kind, source: shape.source })
     commit(shapes.filter((s) => s.id !== id))
     if (selectedId === id) setSelectedId(null)
   }
 
   function changeClass(id: string, className: string) {
+    const shape = shapes.find((s) => s.id === id)
+    if (!shape || shape.className === className) return
+    log('class_changed', { from: shape.className, to: className, source: shape.source })
     commit(shapes.map((s) => (s.id === id ? { ...s, className, source: markEdited(s.source) } : s)))
   }
 
   function undo() {
     const previous = history.at(-1)
     if (!previous) return
+    log('undo')
     setHistory(history.slice(0, -1))
     setShapes(previous)
     setSelectedId(null)
@@ -194,6 +210,8 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   }
 
   function chooseMode(mode: Mode) {
+    if (mode === p.mode) return
+    logEvent(image.id, mode, 'mode_changed', { from: p.mode, to: mode })
     p.setMode(mode)
     setAiMessage(undefined)
     if (mode === 'manual' && p.tool === 'magic') chooseTool('box')
@@ -214,7 +232,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   // ---------- AI assistance ----------
 
   /** Ask the detector for boxes; they replace earlier, untouched AI boxes. */
-  async function suggest() {
+  async function suggest(auto = false) {
     if (!assisted || !detectorReady || aiBusy) return
     setAiBusy(true)
     setAiMessage('Detecting…')
@@ -232,8 +250,16 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         modelVersionId: result.model_version_id,
       }))
       // Keep everything the human made or changed; replace only untouched AI boxes.
-      const kept = latest.current.shapes.filter((s) => !(s.source === 'ai' && s.kind === 'box'))
+      const before = latest.current.shapes
+      const kept = before.filter((s) => !(s.source === 'ai' && s.kind === 'box'))
       commit([...kept, ...suggestions])
+      log('suggest', {
+        auto,
+        count: suggestions.length,
+        replaced: before.length - kept.length, // untouched AI boxes from an earlier run
+        conf: p.confidence,
+        latency_ms: result.latency_ms,
+      })
       const ignored = Object.entries(result.ignored)
         .map(([name, n]) => `${n} × ${name}`)
         .join(', ')
@@ -272,6 +298,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         }),
       )
       if (request !== magicRequest.current) return
+      log('magic_click', { label, clicks: points.length, latency_ms: result.latency_ms })
       setMagicPreview({
         points: result.points.map(([x = 0, y = 0]): Point => [x, y]),
         score: result.score,
@@ -288,6 +315,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
 
   function acceptMagic() {
     if (!magicPreview) return false
+    log('magic_accepted', { clicks: magicPoints.length })
     create({
       ...newPolygon(magicPreview.points, p.activeClass),
       source: 'ai',
@@ -311,7 +339,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     }
     if (detectorReady && !once.suggested && initialShapes.length === 0 && image.status === 'todo') {
       once.suggested = true
-      void suggest()
+      void suggest(true)
     }
   })
   useEffect(() => {
@@ -379,6 +407,15 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     }
   }, [image.id])
 
+  // Effort study: when was the image opened / left (the time in between = effort).
+  const logOpenClose = useEffectEvent((event: 'image_opened' | 'image_closed') =>
+    log(event, { annotations: latest.current.shapes.length }),
+  )
+  useEffect(() => {
+    logOpenClose('image_opened')
+    return () => logOpenClose('image_closed')
+  }, [])
+
   // ---------- navigation and status ----------
 
   async function goTo(path: string) {
@@ -391,6 +428,17 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
 
   async function setImageStatus(next: ImageStatus) {
     await flush()
+    const current = latest.current.shapes
+    log(next === 'done' ? 'image_done' : 'image_reopened', {
+      annotations: current.length,
+      // How much of the final result the AI produced, unchanged or corrected (effort study).
+      by_source: Object.fromEntries(
+        (['manual', 'ai', 'ai_edited'] as const).map((src) => [
+          src,
+          current.filter((s) => s.source === src).length,
+        ]),
+      ),
+    })
     unwrap(
       await api.PATCH('/api/images/{image_id}', { ...annotationsPath, body: { status: next } }),
     )
@@ -632,7 +680,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
           onSelect={setSelectedId}
           onHover={setHoveredId}
           onCreate={create}
-          onEditStart={remember}
+          onEditStart={startEdit}
           onEdit={edit}
           magicPoints={magicPoints}
           magicPreview={magicPreview?.points ?? null}

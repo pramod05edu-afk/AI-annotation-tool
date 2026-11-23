@@ -101,6 +101,43 @@ function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: 
   )
 }
 
+/** Download the dataset: the browser saves the zip the API streams back. */
+function ExportPanel({ projectId, doneCount }: { projectId: number; doneCount: number }) {
+  const [format, setFormat] = useState<'coco' | 'yolo'>('coco')
+  const [scope, setScope] = useState<'all' | 'done'>('done')
+  const nothingDone = scope === 'done' && doneCount === 0
+  return (
+    <section className="card export">
+      <h2>Export dataset</h2>
+      <label>
+        Format{' '}
+        <select value={format} onChange={(e) => setFormat(e.target.value as 'coco' | 'yolo')}>
+          <option value="coco">COCO (JSON, boxes + polygons)</option>
+          <option value="yolo">YOLO (txt labels + data.yaml)</option>
+        </select>
+      </label>
+      <label>
+        Images{' '}
+        <select value={scope} onChange={(e) => setScope(e.target.value as 'all' | 'done')}>
+          <option value="done">only done ({doneCount})</option>
+          <option value="all">all</option>
+        </select>
+      </label>
+      {nothingDone ? (
+        <span className="muted small">Mark images as done first.</span>
+      ) : (
+        <a
+          className="button primary"
+          href={`/api/projects/${projectId}/export?format=${format}&scope=${scope}`}
+          download
+        >
+          ⬇ Download zip
+        </a>
+      )}
+    </section>
+  )
+}
+
 function Thumbnail({ projectId, image }: { projectId: number; image: ImageInfo }) {
   return (
     <Link
@@ -203,6 +240,7 @@ export default function ProjectPage() {
 
       <ProgressBar project={project.data} />
       <UploadZone projectId={projectId} onUploaded={refresh} />
+      <ExportPanel projectId={projectId} doneCount={project.data.status_counts?.done ?? 0} />
 
       <div className="tabs" role="tablist">
         {(['all', 'todo', 'in_progress', 'done'] as const).map((s) => (

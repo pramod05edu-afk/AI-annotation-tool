@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from app import __version__
 from app.config import get_settings
 from app.ml.manager import get_models
-from app.routers import ai, annotations, health, images, logs, model_versions, projects
+from app.routers import ai, annotations, export, health, images, logs, model_versions, projects
 from app.storage import get_storage
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -51,5 +51,6 @@ for router in (
     model_versions.router,
     logs.router,
     ai.router,
+    export.router,
 ):
     app.include_router(router, prefix="/api")

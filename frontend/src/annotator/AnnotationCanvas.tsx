@@ -55,7 +55,7 @@ export interface CanvasProps {
   onSelect: (id: string | null) => void
   onHover: (id: string | null) => void
   onCreate: (shape: Shape) => void
-  onEditStart: () => void // a drag/resize begins: remember the state for undo
+  onEditStart: (shape: Shape) => void // a drag/resize begins: remember for undo, log it
   onEdit: (shape: Shape) => void
   magicPoints: MagicPoint[] // magic-click tool: the clicks so far
   magicPreview: Point[] | null // the outline SAM proposes for them
@@ -223,7 +223,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
         onMouseDown={() => selectable && p.onSelect(s.id)}
         onMouseEnter={() => p.onHover(s.id)}
         onMouseLeave={() => p.onHover(null)}
-        onDragStart={p.onEditStart}
+        onDragStart={() => p.onEditStart(s)}
         onDragEnd={(e) => {
           const node = e.target
           const w = x2 - x1
@@ -234,7 +234,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
           node.position({ x, y })
           p.onEdit({ ...s, box: roundBox([x, y, x + w, y + h]) })
         }}
-        onTransformStart={p.onEditStart}
+        onTransformStart={() => p.onEditStart(s)}
         onTransformEnd={(e) => {
           const node = e.target
           const box = boxFromCorners(
@@ -268,7 +268,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
         onMouseDown={() => selectable && p.onSelect(s.id)}
         onMouseEnter={() => p.onHover(s.id)}
         onMouseLeave={() => p.onHover(null)}
-        onDragStart={p.onEditStart}
+        onDragStart={() => p.onEditStart(s)}
         onDragEnd={(e) => {
           const node = e.target
           const dx = node.x()
@@ -355,7 +355,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
                   strokeWidth={2}
                   strokeScaleEnabled={false}
                   draggable
-                  onDragStart={p.onEditStart}
+                  onDragStart={() => p.onEditStart(selected)}
                   onDragMove={(e) => {
                     const [nx, ny] = clampToImage([e.target.x(), e.target.y()])
                     e.target.position({ x: nx, y: ny })
