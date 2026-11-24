@@ -695,6 +695,16 @@
       },
       "ProjectCreate": {
         "properties": {
+          "annotation_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnnotationMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "classes": {
             "items": {
               "maxLength": 100,
@@ -722,6 +732,16 @@
       },
       "ProjectRead": {
         "properties": {
+          "annotation_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnnotationMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "classes": {
             "items": {
               "type": "string"
@@ -769,6 +789,16 @@
       },
       "ProjectUpdate": {
         "properties": {
+          "annotation_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnnotationMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "classes": {
             "anyOf": [
               {

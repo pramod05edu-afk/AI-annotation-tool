@@ -29,6 +29,7 @@ SPLITS_FILE = REPO_ROOT / "eval" / "splits.json"
 SETS_FILE = REPO_ROOT / "eval" / "effort_study_sets.json"
 CLASSES = ["helmet", "head"]
 PROJECTS = {"A": "Effort study A (manual)", "B": "Effort study B (assisted)"}
+MODES = {"A": "manual", "B": "assisted"}
 
 
 def object_count(labels_dir: Path, name: str) -> int:
@@ -63,7 +64,11 @@ def main() -> int:
             return 1
         for key, project_name in PROJECTS.items():
             project = (
-                client.post("/api/projects", json={"name": project_name, "classes": CLASSES})
+                client.post(
+                    "/api/projects",
+                    # The app enforces this mode for every image of the project.
+                    json={"name": project_name, "classes": CLASSES, "annotation_mode": MODES[key]},
+                )
                 .raise_for_status()
                 .json()
             )

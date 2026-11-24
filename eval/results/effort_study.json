@@ -1,0 +1,829 @@
+{
+  "manual": {
+    "project": "Effort study A (manual)",
+    "mode": "manual",
+    "images_total": 30,
+    "images_done": 30,
+    "wrong_mode_events": 0,
+    "per_image": [
+      {
+        "image": "hard_hat_workers775.png",
+        "objects": 15,
+        "seconds": 34.51,
+        "seconds_per_object": 2.3,
+        "interactions": 12,
+        "events": {
+          "annotation_created": 12
+        },
+        "f1": 0.8148
+      },
+      {
+        "image": "hard_hat_workers1487.png",
+        "objects": 11,
+        "seconds": 92.3,
+        "seconds_per_object": 8.39,
+        "interactions": 18,
+        "events": {
+          "annotation_created": 11,
+          "class_changed": 7
+        },
+        "f1": 0.5455
+      },
+      {
+        "image": "hard_hat_workers4523.png",
+        "objects": 11,
+        "seconds": 114.51,
+        "seconds_per_object": 10.41,
+        "interactions": 25,
+        "events": {
+          "annotation_created": 14,
+          "class_changed": 10,
+          "annotation_deleted": 1
+        },
+        "f1": 0.8333
+      },
+      {
+        "image": "hard_hat_workers1695.png",
+        "objects": 10,
+        "seconds": 69.43,
+        "seconds_per_object": 6.94,
+        "interactions": 12,
+        "events": {
+          "annotation_created": 10,
+          "class_changed": 2
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2905.png",
+        "objects": 10,
+        "seconds": 38.87,
+        "seconds_per_object": 3.89,
+        "interactions": 12,
+        "events": {
+          "annotation_created": 11,
+          "annotation_deleted": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2040.png",
+        "objects": 9,
+        "seconds": 60.27,
+        "seconds_per_object": 6.7,
+        "interactions": 12,
+        "events": {
+          "annotation_created": 10,
+          "annotation_deleted": 2
+        },
+        "f1": 0.8235
+      },
+      {
+        "image": "hard_hat_workers4005.png",
+        "objects": 9,
+        "seconds": 38.35,
+        "seconds_per_object": 4.26,
+        "interactions": 11,
+        "events": {
+          "annotation_created": 10,
+          "class_changed": 1
+        },
+        "f1": 0.4211
+      },
+      {
+        "image": "hard_hat_workers2046.png",
+        "objects": 8,
+        "seconds": 45.89,
+        "seconds_per_object": 5.74,
+        "interactions": 13,
+        "events": {
+          "annotation_created": 11,
+          "annotation_deleted": 2
+        },
+        "f1": 0.7059
+      },
+      {
+        "image": "hard_hat_workers4600.png",
+        "objects": 8,
+        "seconds": 20.66,
+        "seconds_per_object": 2.58,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 5,
+          "annotation_deleted": 1
+        },
+        "f1": 0.5
+      },
+      {
+        "image": "hard_hat_workers3828.png",
+        "objects": 7,
+        "seconds": 52.32,
+        "seconds_per_object": 7.47,
+        "interactions": 14,
+        "events": {
+          "annotation_created": 7,
+          "class_changed": 7
+        },
+        "f1": 0.4286
+      },
+      {
+        "image": "hard_hat_workers43.png",
+        "objects": 7,
+        "seconds": 34.6,
+        "seconds_per_object": 4.94,
+        "interactions": 9,
+        "events": {
+          "annotation_created": 7,
+          "class_changed": 2
+        },
+        "f1": 0.5714
+      },
+      {
+        "image": "hard_hat_workers139.png",
+        "objects": 6,
+        "seconds": 30.19,
+        "seconds_per_object": 5.03,
+        "interactions": 4,
+        "events": {
+          "annotation_created": 4
+        },
+        "f1": 0.0
+      },
+      {
+        "image": "hard_hat_workers2036.png",
+        "objects": 6,
+        "seconds": 21.64,
+        "seconds_per_object": 3.61,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 6
+        },
+        "f1": 0.8333
+      },
+      {
+        "image": "hard_hat_workers450.png",
+        "objects": 6,
+        "seconds": 18.79,
+        "seconds_per_object": 3.13,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 6
+        },
+        "f1": 0.6667
+      },
+      {
+        "image": "hard_hat_workers4882.png",
+        "objects": 6,
+        "seconds": 22.79,
+        "seconds_per_object": 3.8,
+        "interactions": 8,
+        "events": {
+          "annotation_created": 7,
+          "annotation_deleted": 1
+        },
+        "f1": 0.6667
+      },
+      {
+        "image": "hard_hat_workers1953.png",
+        "objects": 5,
+        "seconds": 17.84,
+        "seconds_per_object": 3.57,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 6
+        },
+        "f1": 0.7273
+      },
+      {
+        "image": "hard_hat_workers4407.png",
+        "objects": 5,
+        "seconds": 17.59,
+        "seconds_per_object": 3.52,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 5,
+          "annotation_deleted": 1
+        },
+        "f1": 0.6667
+      },
+      {
+        "image": "hard_hat_workers1533.png",
+        "objects": 4,
+        "seconds": 12.12,
+        "seconds_per_object": 3.03,
+        "interactions": 4,
+        "events": {
+          "annotation_created": 4
+        },
+        "f1": 0.5
+      },
+      {
+        "image": "hard_hat_workers1642.png",
+        "objects": 4,
+        "seconds": 13.79,
+        "seconds_per_object": 3.45,
+        "interactions": 4,
+        "events": {
+          "annotation_created": 4
+        },
+        "f1": 0.75
+      },
+      {
+        "image": "hard_hat_workers2079.png",
+        "objects": 4,
+        "seconds": 8.38,
+        "seconds_per_object": 2.1,
+        "interactions": 2,
+        "events": {
+          "annotation_created": 2
+        },
+        "f1": 0.6667
+      },
+      {
+        "image": "hard_hat_workers2193.png",
+        "objects": 4,
+        "seconds": 20.53,
+        "seconds_per_object": 5.13,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 4,
+          "class_changed": 2
+        },
+        "f1": 0.5
+      },
+      {
+        "image": "hard_hat_workers3173.png",
+        "objects": 4,
+        "seconds": 19.66,
+        "seconds_per_object": 4.92,
+        "interactions": 6,
+        "events": {
+          "annotation_created": 5,
+          "class_changed": 1
+        },
+        "f1": 0.8889
+      },
+      {
+        "image": "hard_hat_workers3192.png",
+        "objects": 4,
+        "seconds": 12.89,
+        "seconds_per_object": 3.22,
+        "interactions": 4,
+        "events": {
+          "annotation_created": 4
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1075.png",
+        "objects": 3,
+        "seconds": 10.24,
+        "seconds_per_object": 3.41,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 0.6667
+      },
+      {
+        "image": "hard_hat_workers1287.png",
+        "objects": 3,
+        "seconds": 13.76,
+        "seconds_per_object": 4.59,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2135.png",
+        "objects": 3,
+        "seconds": 12.84,
+        "seconds_per_object": 4.28,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2458.png",
+        "objects": 3,
+        "seconds": 7.52,
+        "seconds_per_object": 2.51,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers3058.png",
+        "objects": 3,
+        "seconds": 7.41,
+        "seconds_per_object": 2.47,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 0.3333
+      },
+      {
+        "image": "hard_hat_workers4191.png",
+        "objects": 3,
+        "seconds": 12.39,
+        "seconds_per_object": 4.13,
+        "interactions": 4,
+        "events": {
+          "annotation_created": 4
+        },
+        "f1": 0.5714
+      },
+      {
+        "image": "hard_hat_workers778.png",
+        "objects": 3,
+        "seconds": 9.22,
+        "seconds_per_object": 3.07,
+        "interactions": 3,
+        "events": {
+          "annotation_created": 3
+        },
+        "f1": 0.3333
+      }
+    ],
+    "quality_vs_ground_truth": {
+      "tp": 126,
+      "fp": 52,
+      "fn": 58,
+      "precision": 0.7079,
+      "recall": 0.6848,
+      "f1": 0.6961
+    },
+    "quality_lenient_iou_30": {
+      "tp": 162,
+      "fp": 16,
+      "fn": 22,
+      "precision": 0.9101,
+      "recall": 0.8804,
+      "f1": 0.895
+    },
+    "objects_by_label_fit": {
+      "good_label": 126,
+      "loose_label": 45,
+      "no_label_near_object": 13
+    },
+    "recall_small_objects": 0.5,
+    "final_labels_by_source": {
+      "ai": 0,
+      "manual": 178,
+      "ai_edited": 0
+    },
+    "summary": {
+      "seconds": {
+        "n": 30,
+        "mean": 29.71,
+        "std": 25.81,
+        "median": 20.09,
+        "min": 7.41,
+        "max": 114.51
+      },
+      "seconds_per_object": {
+        "n": 30,
+        "mean": 4.42,
+        "std": 1.93,
+        "median": 3.84,
+        "min": 2.1,
+        "max": 10.41
+      },
+      "interactions": {
+        "n": 30,
+        "mean": 7.6,
+        "std": 5.3,
+        "median": 6.0,
+        "min": 2,
+        "max": 25
+      }
+    }
+  },
+  "assisted": {
+    "project": "Effort study B (assisted)",
+    "mode": "assisted",
+    "images_total": 30,
+    "images_done": 30,
+    "wrong_mode_events": 0,
+    "per_image": [
+      {
+        "image": "hard_hat_workers4798.png",
+        "objects": 14,
+        "seconds": 7.0,
+        "seconds_per_object": 0.5,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.9333
+      },
+      {
+        "image": "hard_hat_workers2428.png",
+        "objects": 12,
+        "seconds": 5.28,
+        "seconds_per_object": 0.44,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.9091
+      },
+      {
+        "image": "hard_hat_workers1013.png",
+        "objects": 10,
+        "seconds": 3.96,
+        "seconds_per_object": 0.4,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1174.png",
+        "objects": 10,
+        "seconds": 7.91,
+        "seconds_per_object": 0.79,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8696
+      },
+      {
+        "image": "hard_hat_workers3453.png",
+        "objects": 10,
+        "seconds": 5.79,
+        "seconds_per_object": 0.58,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers4076.png",
+        "objects": 10,
+        "seconds": 3.53,
+        "seconds_per_object": 0.35,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.9524
+      },
+      {
+        "image": "hard_hat_workers4603.png",
+        "objects": 9,
+        "seconds": 19.05,
+        "seconds_per_object": 2.12,
+        "interactions": 2,
+        "events": {
+          "suggest": 1,
+          "annotation_created": 1,
+          "class_changed": 1
+        },
+        "f1": 0.8421
+      },
+      {
+        "image": "hard_hat_workers74.png",
+        "objects": 9,
+        "seconds": 4.78,
+        "seconds_per_object": 0.53,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers4951.png",
+        "objects": 8,
+        "seconds": 5.58,
+        "seconds_per_object": 0.7,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.9412
+      },
+      {
+        "image": "hard_hat_workers3439.png",
+        "objects": 7,
+        "seconds": 8.63,
+        "seconds_per_object": 1.23,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers925.png",
+        "objects": 7,
+        "seconds": 7.11,
+        "seconds_per_object": 1.02,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.5714
+      },
+      {
+        "image": "hard_hat_workers1378.png",
+        "objects": 6,
+        "seconds": 6.4,
+        "seconds_per_object": 1.07,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2352.png",
+        "objects": 6,
+        "seconds": 5.06,
+        "seconds_per_object": 0.84,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers3569.png",
+        "objects": 6,
+        "seconds": 2.87,
+        "seconds_per_object": 0.48,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8
+      },
+      {
+        "image": "hard_hat_workers1077.png",
+        "objects": 5,
+        "seconds": 29.15,
+        "seconds_per_object": 5.83,
+        "interactions": 3,
+        "events": {
+          "suggest": 1,
+          "annotation_deleted": 1,
+          "annotation_created": 1,
+          "class_changed": 1
+        },
+        "f1": 0.7692
+      },
+      {
+        "image": "hard_hat_workers142.png",
+        "objects": 5,
+        "seconds": 3.54,
+        "seconds_per_object": 0.71,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1063.png",
+        "objects": 4,
+        "seconds": 6.1,
+        "seconds_per_object": 1.52,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1148.png",
+        "objects": 4,
+        "seconds": 2.74,
+        "seconds_per_object": 0.69,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1768.png",
+        "objects": 4,
+        "seconds": 9.4,
+        "seconds_per_object": 2.35,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1784.png",
+        "objects": 4,
+        "seconds": 3.4,
+        "seconds_per_object": 0.85,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers2883.png",
+        "objects": 4,
+        "seconds": 14.47,
+        "seconds_per_object": 3.62,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8889
+      },
+      {
+        "image": "hard_hat_workers2894.png",
+        "objects": 4,
+        "seconds": 1.47,
+        "seconds_per_object": 0.37,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers3621.png",
+        "objects": 4,
+        "seconds": 1.93,
+        "seconds_per_object": 0.48,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8889
+      },
+      {
+        "image": "hard_hat_workers1061.png",
+        "objects": 3,
+        "seconds": 1.58,
+        "seconds_per_object": 0.53,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1605.png",
+        "objects": 3,
+        "seconds": 1.31,
+        "seconds_per_object": 0.44,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers1964.png",
+        "objects": 3,
+        "seconds": 1.19,
+        "seconds_per_object": 0.4,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8571
+      },
+      {
+        "image": "hard_hat_workers2577.png",
+        "objects": 3,
+        "seconds": 0.7,
+        "seconds_per_object": 0.23,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers3017.png",
+        "objects": 3,
+        "seconds": 1.85,
+        "seconds_per_object": 0.62,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers4728.png",
+        "objects": 3,
+        "seconds": 1.51,
+        "seconds_per_object": 0.5,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 1.0
+      },
+      {
+        "image": "hard_hat_workers63.png",
+        "objects": 3,
+        "seconds": 1.83,
+        "seconds_per_object": 0.61,
+        "interactions": 0,
+        "events": {
+          "suggest": 1
+        },
+        "f1": 0.8
+      }
+    ],
+    "quality_vs_ground_truth": {
+      "tp": 174,
+      "fp": 18,
+      "fn": 9,
+      "precision": 0.9062,
+      "recall": 0.9508,
+      "f1": 0.928
+    },
+    "quality_lenient_iou_30": {
+      "tp": 174,
+      "fp": 18,
+      "fn": 9,
+      "precision": 0.9062,
+      "recall": 0.9508,
+      "f1": 0.928
+    },
+    "objects_by_label_fit": {
+      "good_label": 175,
+      "no_label_near_object": 7,
+      "loose_label": 1
+    },
+    "recall_small_objects": 0.9157,
+    "final_labels_by_source": {
+      "ai": 190,
+      "manual": 2,
+      "ai_edited": 0
+    },
+    "summary": {
+      "seconds": {
+        "n": 30,
+        "mean": 5.84,
+        "std": 5.97,
+        "median": 4.37,
+        "min": 0.7,
+        "max": 29.15
+      },
+      "seconds_per_object": {
+        "n": 30,
+        "mean": 1.03,
+        "std": 1.15,
+        "median": 0.61,
+        "min": 0.23,
+        "max": 5.83
+      },
+      "interactions": {
+        "n": 30,
+        "mean": 0.17,
+        "std": 0.65,
+        "median": 0.0,
+        "min": 0,
+        "max": 3
+      }
+    }
+  },
+  "comparison": {
+    "seconds": {
+      "mann_whitney_u": 847.0,
+      "p_value": 4.572570439873648e-09,
+      "rank_biserial": 0.882,
+      "mean_reduction_percent": 80.4,
+      "median_reduction_percent": 78.3
+    },
+    "seconds_per_object": {
+      "mann_whitney_u": 858.0,
+      "p_value": 1.6903446584363419e-09,
+      "rank_biserial": 0.907,
+      "mean_reduction_percent": 76.8,
+      "median_reduction_percent": 84.0
+    },
+    "interactions": {
+      "mann_whitney_u": 895.5,
+      "p_value": 3.4947022407498554e-12,
+      "rank_biserial": 0.99,
+      "mean_reduction_percent": 97.8,
+      "median_reduction_percent": 100.0
+    }
+  }
+}

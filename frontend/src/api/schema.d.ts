@@ -558,6 +558,7 @@ export interface components {
         };
         /** ProjectCreate */
         ProjectCreate: {
+            annotation_mode?: components["schemas"]["AnnotationMode"] | null;
             /** Classes */
             classes: string[];
             /** Name */
@@ -565,6 +566,7 @@ export interface components {
         };
         /** ProjectRead */
         ProjectRead: {
+            annotation_mode?: components["schemas"]["AnnotationMode"] | null;
             /** Classes */
             classes: string[];
             /**
@@ -588,6 +590,7 @@ export interface components {
         };
         /** ProjectUpdate */
         ProjectUpdate: {
+            annotation_mode?: components["schemas"]["AnnotationMode"] | null;
             /** Classes */
             classes?: string[] | null;
             /** Name */

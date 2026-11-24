@@ -84,6 +84,11 @@ class Project(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), unique=True)
     classes: Mapped[list[str]] = mapped_column(JSONB)
+    # Fixed annotation mode (effort study): the UI enforces it for every image of the project.
+    # NULL = the annotator chooses freely.
+    annotation_mode: Mapped[AnnotationMode | None] = mapped_column(
+        _enum(AnnotationMode), nullable=True
+    )
     created_at: Mapped[datetime] = _now()
 
     images: Mapped[list["Image"]] = relationship(

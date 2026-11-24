@@ -36,6 +36,7 @@ import {
   type View,
 } from '../annotator/shapes'
 import { useAiStatus } from '../annotator/useAiStatus'
+import ModeSwitch from '../components/ModeSwitch'
 import { useAsync, useHtmlImage, usePersistentState } from '../hooks'
 
 const AUTOSAVE_DELAY_MS = 800
@@ -104,6 +105,7 @@ interface EditorProps {
   confidence: number
   setConfidence: (value: number) => void
   ai: AiStatus | undefined
+  modeLocked: boolean // the project prescribes the mode (effort study)
 }
 
 function Editor({ project, image, htmlImage, initialShapes, position, ...p }: EditorProps) {
@@ -606,19 +608,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         </button>
 
         <span className="separator" />
-        <div className="segmented" role="group" aria-label="Annotation mode">
-          {(['manual', 'assisted'] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              className={p.mode === m ? 'active' : ''}
-              onClick={() => chooseMode(m)}
-              title={m === 'manual' ? 'Label by hand only' : 'AI suggestions and magic click'}
-            >
-              {m === 'manual' ? 'Manual' : 'Assisted'}
-            </button>
-          ))}
-        </div>
+        <ModeSwitch mode={p.mode} locked={p.modeLocked} onChange={chooseMode} />
 
         <span className="separator" />
         {TOOLS.filter((t) => assisted || !t.assistedOnly).map(({ tool, key, label }) => (
@@ -874,7 +864,9 @@ export default function AnnotatorPage() {
           : (project.classes[0] ?? '')
       }
       setActiveClass={setActiveClass}
-      mode={mode}
+      // A project with a fixed mode (effort study) overrides the annotator's own choice.
+      mode={project.annotation_mode ?? mode}
+      modeLocked={project.annotation_mode != null}
       setMode={setMode}
       confidence={confidence}
       setConfidence={setConfidence}
