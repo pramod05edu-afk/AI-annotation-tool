@@ -6,7 +6,9 @@ slow model call (hundreds of ms on CPU) never blocks other requests.
 
 import io
 import logging
+import threading
 import time
+from collections import OrderedDict
 
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -15,11 +17,14 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.deps import get_image_or_404
+from app.ml.base import Detection
 from app.ml.manager import ModelManager, ModelSlot, get_models
-from app.ml.postprocess import clip_box, map_to_project_classes
+from app.ml.postprocess import clip_box, map_to_project_classes, pick_box_at_point
 from app.models import Image
 from app.schemas import (
     AiStatus,
+    ClickBoxRequest,
+    ClickBoxResult,
     ModelSlotStatus,
     SegmentRequest,
     SegmentResult,
@@ -31,6 +36,37 @@ from app.storage import Storage, get_storage
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["ai"])
+
+# Smart click uses ALL candidates, even weak ones: the user's click is the extra evidence.
+CLICK_MIN_CONF = 0.01
+_CLICK_CACHE_SIZE = 64  # images; one entry is a short list of boxes
+
+
+class _DetectionCache:
+    """Low-confidence detections per (image, model): the first click on an image runs the
+    detector, further clicks on the same image are answered from memory."""
+
+    def __init__(self, size: int) -> None:
+        self._items: OrderedDict[tuple[int, str], list[Detection]] = OrderedDict()
+        self._size = size
+        self._lock = threading.Lock()
+
+    def get(self, key: tuple[int, str]) -> list[Detection] | None:
+        with self._lock:
+            if key in self._items:
+                self._items.move_to_end(key)
+                return self._items[key]
+            return None
+
+    def put(self, key: tuple[int, str], value: list[Detection]) -> None:
+        with self._lock:
+            self._items[key] = value
+            self._items.move_to_end(key)
+            while len(self._items) > self._size:
+                self._items.popitem(last=False)  # forget the least recently used image
+
+
+_click_cache = _DetectionCache(_CLICK_CACHE_SIZE)
 
 
 def _slot_status(slot: ModelSlot[object]) -> ModelSlotStatus:
@@ -97,6 +133,37 @@ def suggest_boxes(
         latency_ms=latency,
         suggestions=suggestions,
         ignored=dict(ignored),
+    )
+
+
+@router.post("/images/{image_id}/click-box", response_model=ClickBoxResult)
+def click_box(
+    image_id: int,
+    body: ClickBoxRequest,
+    db: Session = Depends(get_db),
+    storage: Storage = Depends(get_storage),
+    models: ModelManager = Depends(get_models),
+) -> ClickBoxResult:
+    """Smart click: the detector's best box (with its class) under the clicked point."""
+    detector = models.detector.require()
+    image = get_image_or_404(db, image_id)
+    start = time.perf_counter()
+    key = (image.id, detector.name)
+    detections = _click_cache.get(key)
+    if detections is None:
+        detections = detector.detect(_image_loader(storage, image), conf=CLICK_MIN_CONF)
+        _click_cache.put(key, detections)
+    kept, _ = map_to_project_classes(detections, image.project.classes)
+    best = pick_box_at_point(kept, body.point, body.exclude)
+    box = clip_box(best.bbox, image.width, image.height) if best else None
+    latency = _ms_since(start)
+    logger.info("click-box image=%s found=%s latency=%.0fms", image_id, box is not None, latency)
+    return ClickBoxResult(
+        model_version_id=models.detector.model_version_id,
+        latency_ms=latency,
+        suggestion=Suggestion(class_name=best.class_name, bbox=box, score=best.score)
+        if best and box
+        else None,
     )
 
 

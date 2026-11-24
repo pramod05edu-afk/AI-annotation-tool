@@ -179,3 +179,46 @@ def test_prepare_encodes_the_image(client: TestClient, models: ModelManager, ima
     response = client.post(f"/api/images/{image_id}/segment/prepare")
     assert response.status_code == 204
     assert models.segmenter.model.prepared == [str(image_id)]  # type: ignore[union-attr]
+
+
+def test_click_box_returns_the_box_under_the_click(
+    client: TestClient, models: ModelManager, image_id: int
+) -> None:
+    response = client.post(f"/api/images/{image_id}/click-box", json={"point": [20, 10]})
+    assert response.status_code == 200, response.text
+    assert response.json()["suggestion"] == {
+        "class_name": "helmet",
+        "bbox": [10, 5, 30, 20],
+        "score": 0.91,
+    }
+    # Smart click asks the detector for weak candidates too.
+    assert models.detector.model.last_conf == 0.01  # type: ignore[union-attr]
+
+
+def test_click_box_skips_labelled_objects_and_reports_nothing_found(
+    client: TestClient, models: ModelManager, image_id: int
+) -> None:
+    response = client.post(
+        f"/api/images/{image_id}/click-box",
+        json={"point": [20, 10], "exclude": [[10, 5, 30, 20]]},
+    )
+    assert response.status_code == 200
+    assert response.json()["suggestion"] is None  # "person" under the click is not a class
+
+
+def test_click_box_caches_detections_per_image(
+    client: TestClient, models: ModelManager, image_id: int
+) -> None:
+    detector = models.detector.model
+    calls = 0
+    original = detector.detect  # type: ignore[union-attr]
+
+    def counting_detect(image: Image.Image, conf: float) -> list[Detection]:
+        nonlocal calls
+        calls += 1
+        return original(image, conf)
+
+    detector.detect = counting_detect  # type: ignore[union-attr, method-assign]
+    for _ in range(3):
+        client.post(f"/api/images/{image_id}/click-box", json={"point": [20, 10]})
+    assert calls <= 1  # 0 if an earlier test already cached this image id

@@ -28,7 +28,7 @@ The backend loads two models in the background at startup (the UI shows when the
 
 | Model | Purpose | Where it comes from |
 |---|---|---|
-| Fine-tuned **YOLO11** (OpenVINO) | ✨ Suggest: pre-labels helmets / heads | Train with [the Colab notebook](docs/training.md), then put `yolo11n_helmet_openvino_model/` into `weights/` |
+| Fine-tuned **YOLO11** (OpenVINO) | ✨ Suggest: pre-labels helmets / heads · 🎯 Smart click: click an object → its box and class | Train with [the Colab notebook](docs/training.md), then put `yolo11n_helmet_openvino_model/` into `weights/` |
 | **MobileSAM** | 🪄 Magic click: click an object → outline | Downloaded automatically into `weights/` on first start |
 
 `weights/` is git-ignored and mounted into the backend container. Use another detector file with
@@ -83,6 +83,7 @@ Interactive docs: http://localhost:3000/api/docs
 | `GET /api/projects/{id}/export?format=coco\|yolo&scope=all\|done` | Download the dataset as a zip with images (COCO JSON incl. polygons, or YOLO txt + `data.yaml`) |
 | `GET /api/ai/status` | Which AI models are loaded |
 | `POST /api/images/{id}/suggest` | Detector boxes, mapped to the project's classes |
+| `POST /api/images/{id}/click-box` | Smart click: the detector's best box under a clicked point (skips labelled objects) |
 | `POST /api/images/{id}/segment/prepare`, `POST /api/images/{id}/segment` | MobileSAM: encode the image ahead of time; clicks → polygon |
 
 ## Dataset

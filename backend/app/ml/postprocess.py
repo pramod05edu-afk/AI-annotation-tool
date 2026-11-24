@@ -10,6 +10,7 @@ import numpy as np
 import numpy.typing as npt
 
 from app.ml.base import Box, Detection, Point
+from app.services.geometry import iou
 
 # Polygon simplification: drop points that deviate less than this fraction of the outline
 # length. 0.2 % keeps the shape visually identical but turns ~1000 contour pixels into ~30 points.
@@ -67,3 +68,28 @@ def polygon_bbox(points: list[Point]) -> Box:
     xs = [p[0] for p in points]
     ys = [p[1] for p in points]
     return (min(xs), min(ys), max(xs), max(ys))
+
+
+def pick_box_at_point(
+    detections: Iterable[Detection],
+    point: Point,
+    exclude: Iterable[Box] = (),
+    overlap_limit: float = 0.5,
+) -> Detection | None:
+    """Smart click: the most confident detection whose box contains the clicked point.
+
+    `detections` should come from a LOW confidence threshold: the click itself is the
+    evidence that an object is there, so a weak candidate the auto-suggest hid is fine now.
+    Boxes that overlap an existing label (IoU >= overlap_limit) are skipped, so clicking a
+    second time near a labelled object finds the NEXT object instead of a duplicate.
+    """
+    x, y = point
+    existing = list(exclude)
+    candidates = [
+        d
+        for d in detections
+        if d.bbox[0] <= x <= d.bbox[2]
+        and d.bbox[1] <= y <= d.bbox[3]
+        and all(iou(d.bbox, box) < overlap_limit for box in existing)
+    ]
+    return max(candidates, key=lambda d: d.score, default=None)

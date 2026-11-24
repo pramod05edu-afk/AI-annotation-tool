@@ -22,6 +22,7 @@ import {
 import AnnotationCanvas from '../annotator/AnnotationCanvas'
 import { logEvent, type LogEventName, type Mode } from '../annotator/interactionLog'
 import {
+  bounds,
   classColor,
   fromApi,
   type MagicPoint,
@@ -44,6 +45,7 @@ const TOOLS: { tool: Tool; key: string; label: string; assistedOnly?: boolean }[
   { tool: 'select', key: 'V', label: 'Select' },
   { tool: 'box', key: 'B', label: 'Box' },
   { tool: 'polygon', key: 'P', label: 'Polygon' },
+  { tool: 'smart', key: 'C', label: '🎯 Smart click', assistedOnly: true },
   { tool: 'magic', key: 'M', label: '🪄 Magic', assistedOnly: true },
 ]
 
@@ -61,6 +63,7 @@ const SHORTCUTS: [string, string][] = [
 
 const AI_SHORTCUTS: [string, string][] = [
   ['S', 'suggest boxes (AI)'],
+  ['C', 'smart click: click an object -> box with its class'],
   ['M', 'magic tool: click = object, Shift / right click = not object'],
   ['Enter', 'accept the magic outline'],
 ]
@@ -214,7 +217,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     logEvent(image.id, mode, 'mode_changed', { from: p.mode, to: mode })
     p.setMode(mode)
     setAiMessage(undefined)
-    if (mode === 'manual' && p.tool === 'magic') chooseTool('box')
+    if (mode === 'manual' && (p.tool === 'magic' || p.tool === 'smart')) chooseTool('box')
   }
 
   function chooseClass(className: string) {
@@ -271,6 +274,44 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
       setAiMessage(`⚠ ${errorMessage(e)}`)
     } finally {
       setAiBusy(false)
+    }
+  }
+
+  /**
+   * Smart click: the user clicks an object, the detector returns its best box there (also weak
+   * candidates the auto-suggest hid), skipping objects that are labelled already.
+   */
+  async function smartClick(point: Point) {
+    if (!detectorReady) {
+      setAiMessage(`⚠ ${modelHint(p.ai, 'detector')}`)
+      return
+    }
+    setAiMessage('Looking for an object…')
+    try {
+      const result = unwrap(
+        await api.POST('/api/images/{image_id}/click-box', {
+          ...annotationsPath,
+          body: { point, exclude: latest.current.shapes.map(bounds) },
+        }),
+      )
+      const found = result.suggestion
+      log('smart_click', { found: Boolean(found), latency_ms: result.latency_ms })
+      if (!found) {
+        setAiMessage('No object found here · draw it with the box tool (B)')
+        return
+      }
+      create({
+        ...newBox(toBox(found.bbox), found.class_name),
+        source: 'ai',
+        score: found.score,
+        modelVersionId: result.model_version_id,
+      })
+      setAiMessage(
+        `${found.class_name} added (${found.score.toFixed(2)}) · ${Math.round(result.latency_ms)} ms` +
+          ' · wrong class? press 1 / 2',
+      )
+    } catch (e) {
+      setAiMessage(`⚠ ${errorMessage(e)}`)
     }
   }
 
@@ -486,6 +527,9 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
       case 'm':
         if (assisted) chooseTool('magic')
         return
+      case 'c':
+        if (assisted) chooseTool('smart')
+        return
       case 's':
         void suggest()
         return
@@ -685,6 +729,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
           magicPoints={magicPoints}
           magicPreview={magicPreview?.points ?? null}
           onMagicClick={(point, label) => void magicClick(point, label)}
+          onSmartClick={(point) => void smartClick(point)}
         />
 
         <aside className="sidebar">
