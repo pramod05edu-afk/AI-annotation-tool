@@ -604,3 +604,27 @@ select {
 .card.export h2 {
   margin: 0 8px 0 0;
 }
+
+.mode-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0 4px;
+}
+
+.mode-lock {
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 2px solid var(--border);
+}
+
+.mode-lock.manual {
+  border-color: var(--warn);
+}
+
+.mode-lock.assisted {
+  border-color: #8a63d2;
+}

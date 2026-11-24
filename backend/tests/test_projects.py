@@ -84,3 +84,26 @@ def test_delete_project_removes_images_and_files(
 def test_unknown_project_is_404(client: TestClient) -> None:
     assert client.get("/api/projects/999999").status_code == 404
     assert client.delete("/api/projects/999999").status_code == 404
+
+
+def test_annotation_mode_can_be_fixed_and_unlocked(client: TestClient) -> None:
+    created = client.post(
+        "/api/projects",
+        json={"name": "Study", "classes": ["helmet"], "annotation_mode": "manual"},
+    ).json()
+    assert created["annotation_mode"] == "manual"
+
+    # Renaming without mentioning the mode keeps it.
+    renamed = client.patch(f"/api/projects/{created['id']}", json={"name": "Study 2"}).json()
+    assert renamed["annotation_mode"] == "manual"
+
+    # An explicit null unlocks it.
+    unlocked = client.patch(f"/api/projects/{created['id']}", json={"annotation_mode": None})
+    assert unlocked.json()["annotation_mode"] is None
+
+
+def test_annotation_mode_rejects_unknown_values(client: TestClient) -> None:
+    response = client.post(
+        "/api/projects", json={"name": "Bad", "classes": ["a"], "annotation_mode": "auto"}
+    )
+    assert response.status_code == 422

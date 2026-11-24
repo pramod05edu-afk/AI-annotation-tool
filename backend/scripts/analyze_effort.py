@@ -36,7 +36,15 @@ from sqlalchemy.orm import Session  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.models import Annotation, Image, InteractionLog, Project  # noqa: E402
 from app.services.effort import Event, rank_biserial, summarize_image  # noqa: E402
-from app.services.evaluation import Counts, Labeled, counts_of, match, read_yolo_labels  # noqa: E402
+from app.services.evaluation import (  # noqa: E402
+    Counts,
+    Labeled,
+    counts_of,
+    match,
+    read_yolo_labels,
+    size_bucket,
+)
+from app.services.geometry import iou  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 SETS_FILE = REPO / "eval" / "effort_study_sets.json"
@@ -87,7 +95,10 @@ def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict
     images = list(
         db.scalars(select(Image).where(Image.project_id == project.id).order_by(Image.id))
     )
-    per_image, quality = [], Counts()
+    per_image, quality, lenient = [], Counts(), Counts()
+    # Diagnostics: WHY labels miss the ground truth (absent vs. present but too loose).
+    diag: Counter[str] = Counter()
+    small_found = small_total = 0
     final_sources: Counter[str] = Counter()
     wrong_mode = 0
     for image in images:
@@ -110,6 +121,19 @@ def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict
         ]
         counts = counts_of(match(labels, truths))
         quality.add(counts)
+        lenient.add(counts_of(match(labels, truths, iou_threshold=0.3)))
+        for truth in truths:
+            best = max((iou(lab.box, truth.box) for lab in labels), default=0.0)
+            diag[
+                "no_label_near_object"
+                if best < 0.1
+                else "loose_label"
+                if best < 0.5
+                else "good_label"
+            ] += 1
+            if size_bucket(truth.box) == "small":
+                small_total += 1
+                small_found += best >= 0.5
         final_sources.update(effort.final_by_source)
         per_image.append(
             {
@@ -130,6 +154,10 @@ def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict
         "wrong_mode_events": wrong_mode,
         "per_image": per_image,
         "quality_vs_ground_truth": quality.as_dict(),
+        # IoU >= 0.3: is the object FOUND at all, even if the box is not tight?
+        "quality_lenient_iou_30": lenient.as_dict(),
+        "objects_by_label_fit": dict(diag),  # good (IoU>=0.5) / loose (0.1-0.5) / none (<0.1)
+        "recall_small_objects": round(small_found / small_total, 4) if small_total else None,
         "final_labels_by_source": dict(final_sources),
     }
 
@@ -150,10 +178,20 @@ def figures(results: dict[str, Any], figures_dir: Path) -> None:
         )
         ax.set_title(title)
         ax.grid(axis="y", alpha=0.3)
-    fig.suptitle("Effort study: manual vs. AI-assisted labelling (one dot = mean)")
+    fig.suptitle(
+        "Effort study: manual vs. AI-assisted labelling"
+        " (box = middle 50 %, line = median, triangle = mean)"
+    )
     fig.tight_layout()
     fig.savefig(figures_dir / "effort_boxplots.png", dpi=150)
     plt.close(fig)
+
+
+def fit(project: dict[str, Any]) -> str:
+    f = project["objects_by_label_fit"]
+    return (
+        f"{f.get('good_label', 0)} / {f.get('loose_label', 0)} / {f.get('no_label_near_object', 0)}"
+    )
 
 
 def markdown(results: dict[str, Any]) -> str:
@@ -186,6 +224,11 @@ def markdown(results: dict[str, Any]) -> str:
         f"| Precision | {qm['precision']} | {qa['precision']} |",
         f"| Recall | {qm['recall']} | {qa['recall']} |",
         f"| F1 | {qm['f1']} | {qa['f1']} |",
+        f"| Recall at lenient IoU >= 0.3 | {m['quality_lenient_iou_30']['recall']} | "
+        f"{a['quality_lenient_iou_30']['recall']} |",
+        f"| Recall on small objects (< 32x32 px) | {m['recall_small_objects']} | "
+        f"{a['recall_small_objects']} |",
+        f"| Objects: good / loose / no label | {fit(m)} | {fit(a)} |",
         "",
         f"Final assisted labels by source: {a['final_labels_by_source']}",
         "",

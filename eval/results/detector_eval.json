@@ -1,0 +1,132 @@
+{
+  "model": "yolo11n_helmet_openvino_model",
+  "conf": 0.25,
+  "test_images": 600,
+  "map_openvino_cpu": {
+    "map50": 0.943,
+    "map50_95": 0.629
+  },
+  "at_app_threshold": {
+    "all": {
+      "tp": 2873,
+      "fp": 325,
+      "fn": 256,
+      "precision": 0.8984,
+      "recall": 0.9182,
+      "f1": 0.9082
+    },
+    "helmet": {
+      "tp": 2085,
+      "fp": 179,
+      "fn": 184,
+      "precision": 0.9209,
+      "recall": 0.9189,
+      "f1": 0.9199
+    },
+    "head": {
+      "tp": 788,
+      "fp": 146,
+      "fn": 72,
+      "precision": 0.8437,
+      "recall": 0.9163,
+      "f1": 0.8785
+    }
+  },
+  "recall_by_size": {
+    "small": {
+      "objects": 1750,
+      "recall": 0.8794
+    },
+    "medium": {
+      "objects": 1304,
+      "recall": 0.9678
+    },
+    "large": {
+      "objects": 75,
+      "recall": 0.96
+    }
+  },
+  "class_confusions": {
+    "helmet predicted as head": 6,
+    "head predicted as helmet": 10
+  },
+  "failure_cases": [
+    {
+      "image": "hard_hat_workers4758",
+      "errors": 19,
+      "false_positives": 19,
+      "missed": 0,
+      "missed_small": 0,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers1313",
+      "errors": 15,
+      "false_positives": 9,
+      "missed": 6,
+      "missed_small": 6,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers306",
+      "errors": 12,
+      "false_positives": 8,
+      "missed": 4,
+      "missed_small": 4,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers1683",
+      "errors": 11,
+      "false_positives": 6,
+      "missed": 5,
+      "missed_small": 5,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers3551",
+      "errors": 11,
+      "false_positives": 1,
+      "missed": 10,
+      "missed_small": 10,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers2290",
+      "errors": 9,
+      "false_positives": 0,
+      "missed": 9,
+      "missed_small": 9,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers1652",
+      "errors": 8,
+      "false_positives": 1,
+      "missed": 7,
+      "missed_small": 7,
+      "class_confusions": 0
+    },
+    {
+      "image": "hard_hat_workers3172",
+      "errors": 8,
+      "false_positives": 3,
+      "missed": 5,
+      "missed_small": 5,
+      "class_confusions": 0
+    }
+  ],
+  "cpu": {
+    "cpu_count": 12,
+    "torch_threads": 1
+  },
+  "speed": {
+    "openvino": {
+      "images": 100,
+      "total_ms_mean": 69.1,
+      "total_ms_median": 61.1,
+      "total_ms_p95": 100.4,
+      "inference_ms_median": 56.8
+    }
+  }
+}

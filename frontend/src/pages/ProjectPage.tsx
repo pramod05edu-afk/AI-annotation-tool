@@ -10,8 +10,10 @@ import {
   unwrap,
   uploadImages,
 } from '../api/client'
+import type { Mode } from '../annotator/interactionLog'
+import ModeSwitch from '../components/ModeSwitch'
 import ProgressBar from '../components/ProgressBar'
-import { useAsync } from '../hooks'
+import { useAsync, usePersistentState } from '../hooks'
 
 const STATUS_LABEL: Record<ImageStatus, string> = {
   todo: 'To do',
@@ -156,6 +158,8 @@ export default function ProjectPage() {
   const projectId = Number(useParams().projectId)
   const navigate = useNavigate()
   const [filter, setFilter] = useState<ImageStatus | 'all'>('all')
+  // Same remembered setting as in the annotator: choose the mode BEFORE opening an image.
+  const [mode, setMode] = usePersistentState<Mode>('annotator.mode', 'assisted')
 
   const loadProject = useCallback(
     async () =>
@@ -238,6 +242,19 @@ export default function ProjectPage() {
         </div>
       </div>
 
+      <div className="mode-row">
+        <span className="muted small">Annotation mode:</span>
+        <ModeSwitch
+          mode={project.data.annotation_mode ?? mode}
+          locked={project.data.annotation_mode != null}
+          onChange={setMode}
+        />
+        <span className="muted small">
+          {project.data.annotation_mode != null
+            ? 'fixed for this project (effort study)'
+            : 'choose before you start annotating'}
+        </span>
+      </div>
       <ProgressBar project={project.data} />
       <UploadZone projectId={projectId} onUploaded={refresh} />
       <ExportPanel projectId={projectId} doneCount={project.data.status_counts?.done ?? 0} />

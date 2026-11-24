@@ -37,6 +37,7 @@ def _unique(classes: list[str]) -> list[str]:
 class ProjectCreate(BaseModel):
     name: Name
     classes: list[ClassName] = Field(min_length=1, max_length=100)
+    annotation_mode: AnnotationMode | None = None  # fixed mode for every image (effort study)
 
     _check_classes = field_validator("classes")(_unique)
 
@@ -44,6 +45,7 @@ class ProjectCreate(BaseModel):
 class ProjectUpdate(BaseModel):
     name: Name | None = None
     classes: list[ClassName] | None = Field(default=None, min_length=1, max_length=100)
+    annotation_mode: AnnotationMode | None = None  # send null explicitly to unlock the mode
 
     @field_validator("classes")
     @classmethod
@@ -55,6 +57,7 @@ class ProjectRead(ORMModel):
     id: int
     name: str
     classes: list[str]
+    annotation_mode: AnnotationMode | None = None
     created_at: datetime
     image_count: int = 0
     status_counts: dict[ImageStatus, int] = Field(default_factory=dict)

@@ -40,7 +40,7 @@ def _with_counts(db: Session, projects: list[Project]) -> list[ProjectRead]:
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
 def create_project(body: ProjectCreate, db: Session = Depends(get_db)) -> ProjectRead:
-    project = Project(name=body.name, classes=body.classes)
+    project = Project(name=body.name, classes=body.classes, annotation_mode=body.annotation_mode)
     db.add(project)
     try:
         db.commit()
@@ -86,6 +86,8 @@ def update_project(
         project.classes = body.classes
     if body.name is not None:
         project.name = body.name
+    if "annotation_mode" in body.model_fields_set:  # given, even as null: set or unlock it
+        project.annotation_mode = body.annotation_mode
     try:
         db.commit()
     except IntegrityError as error:
