@@ -70,4 +70,5 @@ dev = [
     "pycocotools>=2.0.8",
     "pytest>=9.2.0",
     "ruff>=0.17.5",
+    "scipy>=1.14",
 ]

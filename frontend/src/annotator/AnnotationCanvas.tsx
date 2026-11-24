@@ -60,6 +60,7 @@ export interface CanvasProps {
   magicPoints: MagicPoint[] // magic-click tool: the clicks so far
   magicPreview: Point[] | null // the outline SAM proposes for them
   onMagicClick: (point: Point, label: 0 | 1) => void
+  onSmartClick: (point: Point) => void // smart click: the detector's box under the point
 }
 
 const CLOSE_DISTANCE_PX = 10 // clicking this close (on screen) to the first point closes a polygon
@@ -141,7 +142,7 @@ export default function AnnotationCanvas(p: CanvasProps) {
   }
 
   function onMouseMove() {
-    if (tool === 'select' || tool === 'magic') return // nothing follows the mouse: no re-render
+    if (tool === 'select' || tool === 'magic' || tool === 'smart') return // no re-render
     const pt = pointer()
     setCursor(pt ? clampToImage(pt) : null)
   }
@@ -151,6 +152,11 @@ export default function AnnotationCanvas(p: CanvasProps) {
     if (tool === 'select') {
       const target = e.target
       if (target === target.getStage() || target.name() === 'background') p.onSelect(null)
+      return
+    }
+    if (tool === 'smart') {
+      const pt = pointer()
+      if (pt) p.onSmartClick(clampToImage(pt))
       return
     }
     if (tool === 'magic') {

@@ -225,6 +225,89 @@
         "title": "BoxGeometry",
         "type": "object"
       },
+      "ClickBoxRequest": {
+        "properties": {
+          "exclude": {
+            "items": {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "number"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 1000,
+            "title": "Exclude",
+            "type": "array"
+          },
+          "point": {
+            "maxItems": 2,
+            "minItems": 2,
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Point",
+            "type": "array"
+          }
+        },
+        "required": [
+          "point"
+        ],
+        "title": "ClickBoxRequest",
+        "type": "object"
+      },
+      "ClickBoxResult": {
+        "properties": {
+          "latency_ms": {
+            "title": "Latency Ms",
+            "type": "number"
+          },
+          "model_version_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model Version Id"
+          },
+          "suggestion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Suggestion"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "model_version_id",
+          "latency_ms",
+          "suggestion"
+        ],
+        "title": "ClickBoxResult",
+        "type": "object"
+      },
       "ExportFormat": {
         "enum": [
           "coco",
@@ -1282,6 +1365,59 @@
         "summary": "Replace Annotations",
         "tags": [
           "annotations"
+        ]
+      }
+    },
+    "/api/images/{image_id}/click-box": {
+      "post": {
+        "description": "Smart click: the detector's best box (with its class) under the clicked point.",
+        "operationId": "click_box_api_images__image_id__click_box_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "image_id",
+            "required": true,
+            "schema": {
+              "title": "Image Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClickBoxRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClickBoxResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Click Box",
+        "tags": [
+          "ai"
         ]
       }
     },

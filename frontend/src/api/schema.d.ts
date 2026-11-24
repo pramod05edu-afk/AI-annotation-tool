@@ -78,6 +78,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/images/{image_id}/click-box": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Click Box
+         * @description Smart click: the detector's best box (with its class) under the clicked point.
+         */
+        post: operations["click_box_api_images__image_id__click_box_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/images/{image_id}/file": {
         parameters: {
             query?: never;
@@ -354,6 +374,29 @@ export interface components {
              * @enum {string}
              */
             type: "box";
+        };
+        /** ClickBoxRequest */
+        ClickBoxRequest: {
+            /** Exclude */
+            exclude?: [
+                number,
+                number,
+                number,
+                number
+            ][];
+            /** Point */
+            point: [
+                number,
+                number
+            ];
+        };
+        /** ClickBoxResult */
+        ClickBoxResult: {
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model Version Id */
+            model_version_id: number | null;
+            suggestion: components["schemas"]["Suggestion"] | null;
         };
         /**
          * ExportFormat
@@ -840,6 +883,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AnnotationRead"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    click_box_api_images__image_id__click_box_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClickBoxRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClickBoxResult"];
                 };
             };
             /** @description Validation Error */

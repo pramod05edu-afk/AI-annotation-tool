@@ -3,7 +3,13 @@
 import numpy as np
 
 from app.ml.base import Detection
-from app.ml.postprocess import clip_box, map_to_project_classes, mask_to_polygon, polygon_bbox
+from app.ml.postprocess import (
+    clip_box,
+    map_to_project_classes,
+    mask_to_polygon,
+    pick_box_at_point,
+    polygon_bbox,
+)
 
 
 def test_clip_box_keeps_inside_boxes() -> None:
@@ -49,3 +55,31 @@ def test_mask_to_polygon_takes_the_largest_region() -> None:
 
 def test_empty_mask_is_none() -> None:
     assert mask_to_polygon(np.zeros((10, 10), dtype=bool)) is None
+
+
+# ---------- smart click ----------
+
+HELMET = Detection("helmet", (10, 10, 30, 30), 0.9)
+WEAK_HEAD = Detection("head", (12, 12, 32, 32), 0.05)
+FAR_AWAY = Detection("helmet", (60, 60, 80, 80), 0.99)
+
+
+def test_pick_box_takes_the_most_confident_box_under_the_click() -> None:
+    assert pick_box_at_point([WEAK_HEAD, HELMET, FAR_AWAY], (20, 20)) == HELMET
+
+
+def test_pick_box_ignores_boxes_that_do_not_contain_the_click() -> None:
+    assert pick_box_at_point([HELMET, FAR_AWAY], (45, 45)) is None
+
+
+def test_pick_box_skips_objects_that_are_already_labelled() -> None:
+    # The helmet is labelled already. A near-copy of it is skipped too (IoU 0.68 = duplicate);
+    # a clearly different, weaker box under the click is found instead.
+    other = Detection("head", (5, 5, 40, 45), 0.04)  # IoU with the label: 400 / 1400 = 0.29
+    found = pick_box_at_point([HELMET, WEAK_HEAD, other], (20, 20), exclude=[(10, 10, 30, 30)])
+    assert found == other
+
+
+def test_pick_box_keeps_boxes_that_only_slightly_overlap_a_label() -> None:
+    neighbour_label = (25, 10, 45, 30)  # IoU with HELMET = 100 / 700, well below 0.5
+    assert pick_box_at_point([HELMET], (20, 20), exclude=[neighbour_label]) == HELMET

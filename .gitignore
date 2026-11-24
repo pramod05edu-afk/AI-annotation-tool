@@ -32,3 +32,8 @@ eval/results/raw/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Temporary output of the evaluation scripts
+eval/results/_tmp/
+# Debug output of the Intel GPU driver (written when OpenVINO probes the GPU)
+kernel.errors.txt

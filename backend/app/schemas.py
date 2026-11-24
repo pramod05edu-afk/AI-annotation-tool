@@ -233,3 +233,15 @@ class SegmentResult(BaseModel):
     points: list[tuple[float, float]]  # polygon outline in image pixels
     bbox: tuple[float, float, float, float]
     score: float
+
+
+class ClickBoxRequest(BaseModel):
+    point: tuple[float, float]  # where the user clicked (image pixels)
+    # Boxes already labelled on this image: candidates that duplicate them are skipped.
+    exclude: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=1000)
+
+
+class ClickBoxResult(BaseModel):
+    model_version_id: int | None
+    latency_ms: float
+    suggestion: Suggestion | None  # None: the detector sees no object at this point
