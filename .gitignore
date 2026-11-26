@@ -37,3 +37,6 @@ Thumbs.db
 eval/results/_tmp/
 # Debug output of the Intel GPU driver (written when OpenVINO probes the GPU)
 kernel.errors.txt
+
+# Submission files (dataset zips): too big for git, attached to a GitHub Release / Moodle
+deliverables/
