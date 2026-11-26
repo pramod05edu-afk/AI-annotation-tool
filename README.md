@@ -220,9 +220,3 @@ Interactive docs: http://localhost:3000/api/docs
   [Segment Anything](https://segment-anything.com/) (Kirillov et al., 2023).
 - [OpenVINO](https://github.com/openvinotoolkit/openvino) (Apache-2.0), FastAPI, React, Konva,
   PostgreSQL, SeaweedFS.
-
-## Project documents
-
-- [Project plan](docs/PROJECT_PLAN.md) · [Decision records](docs/decisions/) ·
-  [Training guide](docs/training.md) · [Effort-study protocol](docs/effort-study.md) ·
-  [Learning log](docs/learning-log.md)
