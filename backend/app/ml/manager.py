@@ -12,6 +12,7 @@ import json
 import logging
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
@@ -23,6 +24,7 @@ from sqlalchemy import select, update
 from app.config import Settings
 from app.db import SessionLocal
 from app.ml.base import Detector, Segmenter
+from app.ml.download import ensure_model
 from app.models import ModelTask, ModelVersion
 
 logger = logging.getLogger(__name__)
@@ -75,6 +77,7 @@ class ModelManager:
         detector_path = weights_dir / settings.detector_weights
 
         def load_detector() -> YoloDetector:
+            ensure_model(detector_path, settings.detector_url, settings.detector_sha256)
             if not detector_path.exists():
                 raise FileNotFoundError(
                     f"{detector_path} not found - put the trained model there "
@@ -91,11 +94,12 @@ class ModelManager:
 
         self._load(
             self.detector, load_detector, ModelTask.DETECT, detector_path,
-            metrics=_detector_metrics(weights_dir, detector_path),
+            # Read AFTER loading: on a fresh clone the file arrives with the model download.
+            metrics=lambda: _detector_metrics(weights_dir, detector_path),
         )  # fmt: skip
         self._load(
             self.segmenter, load_segmenter, ModelTask.SEGMENT,
-            weights_dir / settings.segmenter_weights, metrics={},
+            weights_dir / settings.segmenter_weights, metrics=dict,
         )  # fmt: skip
 
     @staticmethod
@@ -104,12 +108,12 @@ class ModelManager:
         loader: Any,
         task: ModelTask,
         weights: Path,
-        metrics: dict[str, Any],
+        metrics: Callable[[], dict[str, Any]],
     ) -> None:
         start = time.perf_counter()
         try:
             model = loader()
-            slot.model_version_id = register_model_version(model.name, task, weights, metrics)
+            slot.model_version_id = register_model_version(model.name, task, weights, metrics())
             slot.model, slot.name, slot.state = model, model.name, ModelState.READY
             seconds = time.perf_counter() - start
             logger.info("%s %s ready in %.1f s", slot.label, model.name, seconds)

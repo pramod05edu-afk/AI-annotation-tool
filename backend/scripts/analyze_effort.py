@@ -11,8 +11,15 @@ Statistics: mean +- standard deviation and median per mode; Mann-Whitney U test 
 independent groups of images, no assumption of normally distributed times) with the
 rank-biserial correlation as effect size.
 
-Usage (from backend/, with the database running):
-    uv run python scripts/analyze_effort.py --data D:/datasets/hardhat-prepared
+Data sources:
+  --data DIR    read the study from the database (the app must be running) and the ground
+                truth from the prepared dataset; --export-raw also saves everything to
+                eval/results/effort_study_raw.json (committed)
+  --raw FILE    reproduce the analysis from that file alone: no database, no dataset needed
+
+Usage (from backend/):
+    uv run python scripts/analyze_effort.py --data D:/datasets/hardhat-prepared --export-raw
+    uv run python scripts/analyze_effort.py --raw ../eval/results/effort_study_raw.json
 """
 
 from __future__ import annotations
@@ -22,6 +29,7 @@ import json
 import statistics
 import sys
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -48,6 +56,7 @@ from app.services.geometry import iou  # noqa: E402
 
 REPO = Path(__file__).resolve().parents[2]
 SETS_FILE = REPO / "eval" / "effort_study_sets.json"
+RAW_FILE = REPO / "eval" / "results" / "effort_study_raw.json"
 OUT = REPO / "eval" / "results"
 MODES = {"A": "manual", "B": "assisted"}
 CLASSES = ["helmet", "head"]
@@ -83,18 +92,71 @@ def compare(manual: list[float], assisted: list[float]) -> dict[str, Any]:
     }
 
 
-def label_box(a: Annotation) -> Labeled:
-    x1, y1, x2, y2 = a.geometry["bbox"]  # polygons also store their bounding box
-    return Labeled(a.class_name, (x1, y1, x2, y2))
+# One image of the study, independent of where it was loaded from:
+#   {"filename", "width", "height", "truths": [{"class_name", "bbox"}],
+#    "labels": [{"class_name", "bbox", "source"}], "events": [{"ts", "event", "mode", "payload"}]}
+StudyImage = dict[str, Any]
 
 
-def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict[str, Any]:
-    project = db.scalar(select(Project).where(Project.name == name))
-    if project is None:
-        raise SystemExit(f"Project '{name}' not found - run scripts/seed_effort_study.py first")
-    images = list(
-        db.scalars(select(Image).where(Image.project_id == project.id).order_by(Image.id))
-    )
+def load_from_db(sets: dict[str, Any], labels_dir: Path) -> dict[str, list[StudyImage]]:
+    """The study as recorded in the database, plus the dataset's ground truth per image."""
+    engine = create_engine(get_settings().database_url)
+    study: dict[str, list[StudyImage]] = {}
+    with Session(engine) as db:
+        for key, mode in MODES.items():
+            name = sets["projects"][key]
+            project = db.scalar(select(Project).where(Project.name == name))
+            if project is None:
+                raise SystemExit(f"Project '{name}' not found - run scripts/seed_effort_study.py")
+            images = db.scalars(
+                select(Image).where(Image.project_id == project.id).order_by(Image.id)
+            )
+            study[mode] = []
+            for image in images:
+                truths = read_yolo_labels(
+                    (labels_dir / f"{Path(image.filename).stem}.txt").read_text(),
+                    CLASSES,
+                    image.width,
+                    image.height,
+                )
+                annotations = db.scalars(select(Annotation).where(Annotation.image_id == image.id))
+                logs = db.scalars(
+                    select(InteractionLog)
+                    .where(InteractionLog.image_id == image.id)
+                    .order_by(InteractionLog.id)
+                )
+                study[mode].append(
+                    {
+                        "filename": image.filename,
+                        "width": image.width,
+                        "height": image.height,
+                        "truths": [
+                            {"class_name": t.class_name, "bbox": [round(v, 2) for v in t.box]}
+                            for t in truths
+                        ],
+                        "labels": [
+                            {
+                                "class_name": a.class_name,
+                                "bbox": a.geometry["bbox"],  # polygons store their box too
+                                "source": a.source.value,
+                            }
+                            for a in annotations
+                        ],
+                        "events": [
+                            {
+                                "ts": r.ts.isoformat(),
+                                "event": r.event,
+                                "mode": r.mode.value,
+                                "payload": r.payload,
+                            }
+                            for r in logs
+                        ],
+                    }
+                )
+    return study
+
+
+def analyse_project(images: list[StudyImage], name: str, mode: str) -> dict[str, Any]:
     per_image, quality, lenient = [], Counts(), Counts()
     # Diagnostics: WHY labels miss the ground truth (absent vs. present but too loose).
     diag: Counter[str] = Counter()
@@ -102,23 +164,16 @@ def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict
     final_sources: Counter[str] = Counter()
     wrong_mode = 0
     for image in images:
-        logs = db.scalars(select(InteractionLog).where(InteractionLog.image_id == image.id))
-        effort = summarize_image(
-            (Event(r.ts, r.event, r.mode.value, r.payload) for r in logs), mode
+        events = (
+            Event(datetime.fromisoformat(e["ts"]), e["event"], e["mode"], e["payload"])
+            for e in image["events"]
         )
+        effort = summarize_image(events, mode)
         wrong_mode += effort.wrong_mode_events
         if not effort.done:
             continue
-        truths = read_yolo_labels(
-            (labels_dir / f"{Path(image.filename).stem}.txt").read_text(),
-            CLASSES,
-            image.width,
-            image.height,
-        )
-        labels = [
-            label_box(a)
-            for a in db.scalars(select(Annotation).where(Annotation.image_id == image.id))
-        ]
+        truths = [Labeled(t["class_name"], tuple(t["bbox"])) for t in image["truths"]]
+        labels = [Labeled(lab["class_name"], tuple(lab["bbox"])) for lab in image["labels"]]
         counts = counts_of(match(labels, truths))
         quality.add(counts)
         lenient.add(counts_of(match(labels, truths, iou_threshold=0.3)))
@@ -137,7 +192,7 @@ def analyse_project(db: Session, name: str, mode: str, labels_dir: Path) -> dict
         final_sources.update(effort.final_by_source)
         per_image.append(
             {
-                "image": image.filename,
+                "image": image["filename"],
                 "objects": len(truths),
                 "seconds": round(effort.seconds, 2),
                 "seconds_per_object": round(effort.seconds / max(len(truths), 1), 2),
@@ -242,17 +297,30 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
-    parser.add_argument("--data", type=Path, required=True, help="prepared dataset (test/labels)")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--data", type=Path, help="prepared dataset: read the database")
+    source.add_argument("--raw", type=Path, help="effort_study_raw.json: no database needed")
+    parser.add_argument(
+        "--export-raw", action="store_true", help=f"with --data: write {RAW_FILE.name}"
+    )
     args = parser.parse_args()
 
     sets = json.loads(SETS_FILE.read_text())
-    engine = create_engine(get_settings().database_url)
-    results: dict[str, Any] = {}
-    with Session(engine) as db:
-        for key, mode in MODES.items():
-            results[mode] = analyse_project(
-                db, sets["projects"][key], mode, args.data / "test" / "labels"
+    if args.raw:
+        study = json.loads(args.raw.read_text(encoding="utf-8"))["study"]
+    else:
+        study = load_from_db(sets, args.data / "test" / "labels")
+        if args.export_raw:
+            RAW_FILE.write_text(
+                json.dumps({"projects": sets["projects"], "study": study}, indent=1) + "\n",
+                encoding="utf-8",
+                newline="\n",  # same file on Windows and Linux
             )
+            print(f"Wrote {RAW_FILE}")
+    results: dict[str, Any] = {
+        mode: analyse_project(study[mode], sets["projects"][key], mode)
+        for key, mode in MODES.items()
+    }
     for mode in MODES.values():
         rows = results[mode]["per_image"]
         results[mode]["summary"] = {
@@ -274,11 +342,13 @@ def main() -> None:
             )
 
     OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "effort_study.json").write_text(json.dumps(results, indent=2, default=str) + "\n")
+    (OUT / "effort_study.json").write_text(
+        json.dumps(results, indent=2, default=str) + "\n", encoding="utf-8", newline="\n"
+    )
     if results["manual"]["per_image"] and results["assisted"]["per_image"]:
         figures(results, OUT / "figures")
     report = markdown(results)
-    (OUT / "effort_study.md").write_text(report, encoding="utf-8")
+    (OUT / "effort_study.md").write_text(report, encoding="utf-8", newline="\n")
     print(report)
 
 

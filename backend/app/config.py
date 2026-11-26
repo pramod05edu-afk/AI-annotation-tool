@@ -30,6 +30,13 @@ class Settings(BaseSettings):
     # The fine-tuned detector exported by eval/colab_finetune.ipynb (folder or .pt file).
     detector_weights: str = "yolo11n_helmet_openvino_model"
     detector_imgsz: int = 640  # must match the training / export size
+    # If the detector is missing (fresh clone), it is downloaded from the GitHub Release and
+    # checked against this SHA-256 hash. Set DETECTOR_URL to "" to disable the download.
+    detector_url: str = (
+        "https://github.com/pramod05edu-afk/AI-annotation-tool/releases/download/"
+        "model-v1/yolo11n_helmet_openvino_model.zip"
+    )
+    detector_sha256: str = "36ff9006ed6258b708c2184f9a38e7ce046a119741e71e197b7283bed0a2f44d"
     # Downloaded automatically from the Ultralytics releases on first start if missing.
     segmenter_weights: str = "mobile_sam.pt"
 
