@@ -767,6 +767,13 @@
             "title": "Name",
             "type": "string"
           },
+          "preview_image_ids": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Preview Image Ids",
+            "type": "array"
+          },
           "status_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -941,6 +948,42 @@
           "score"
         ],
         "title": "SegmentResult",
+        "type": "object"
+      },
+      "StatsRead": {
+        "properties": {
+          "images_done": {
+            "title": "Images Done",
+            "type": "integer"
+          },
+          "images_total": {
+            "title": "Images Total",
+            "type": "integer"
+          },
+          "labels_by_source": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Labels By Source",
+            "type": "object"
+          },
+          "labels_total": {
+            "title": "Labels Total",
+            "type": "integer"
+          },
+          "projects": {
+            "title": "Projects",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "projects",
+          "images_total",
+          "images_done",
+          "labels_total",
+          "labels_by_source"
+        ],
+        "title": "StatsRead",
         "type": "object"
       },
       "SuggestRequest": {
@@ -2185,6 +2228,27 @@
         "summary": "Upload Images",
         "tags": [
           "images"
+        ]
+      }
+    },
+    "/api/stats": {
+      "get": {
+        "operationId": "stats_api_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Stats",
+        "tags": [
+          "stats"
         ]
       }
     }

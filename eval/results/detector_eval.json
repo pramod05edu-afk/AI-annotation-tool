@@ -123,10 +123,10 @@
   "speed": {
     "openvino": {
       "images": 100,
-      "total_ms_mean": 69.1,
-      "total_ms_median": 61.1,
-      "total_ms_p95": 100.4,
-      "inference_ms_median": 56.8
+      "total_ms_mean": 57.1,
+      "total_ms_median": 58.1,
+      "total_ms_p95": 65.3,
+      "inference_ms_median": 53.5
     }
   }
 }

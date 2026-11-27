@@ -30,12 +30,44 @@ def _with_counts(db: Session, projects: list[Project]) -> list[ProjectRead]:
         )
         for project_id, image_status, n in rows:
             counts[project_id][image_status] = n
+    previews = _preview_image_ids(db, ids)
     return [
         ProjectRead.model_validate(p).model_copy(
-            update={"status_counts": counts[p.id], "image_count": sum(counts[p.id].values())}
+            update={
+                "status_counts": counts[p.id],
+                "image_count": sum(counts[p.id].values()),
+                "preview_image_ids": previews.get(p.id, []),
+            }
         )
         for p in projects
     ]
+
+
+def _preview_image_ids(
+    db: Session, project_ids: list[int], per_project: int = 3
+) -> dict[int, list[int]]:
+    """The first few image ids of every project (card thumbnails), in ONE query.
+
+    ROW_NUMBER() numbers the images inside each project; keeping rows 1..3 avoids one query
+    per project (the "N+1 queries" problem).
+    """
+    if not project_ids:
+        return {}
+    position = func.row_number().over(partition_by=Image.project_id, order_by=Image.id)
+    numbered = (
+        select(Image.project_id, Image.id, position.label("position"))
+        .where(Image.project_id.in_(project_ids))
+        .subquery()
+    )
+    rows = db.execute(
+        select(numbered.c.project_id, numbered.c.id)
+        .where(numbered.c.position <= per_project)
+        .order_by(numbered.c.project_id, numbered.c.id)
+    )
+    previews: dict[int, list[int]] = {}
+    for project_id, image_id in rows:
+        previews.setdefault(project_id, []).append(image_id)
+    return previews
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)

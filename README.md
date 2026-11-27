@@ -16,7 +16,7 @@ SRH Hochschule Heidelberg.
 | | Result |
 |---|---|
 | Detector (YOLO11n, fine-tuned, 600 held-out test images) | **mAP50 0.945 · mAP50-95 0.632** |
-| Same model exported to OpenVINO, on a laptop CPU | mAP50 0.943 (no accuracy lost) · **61 ms** per image |
+| Same model exported to OpenVINO, on a laptop CPU | mAP50 0.943 (no accuracy lost) · **58 ms** per image |
 | Smart click vs. SAM click (300 test objects, box IoU) | **0.77** vs. 0.47 mean IoU · 92 % vs. 46 % usable (IoU ≥ 0.5) |
 | Effort study (60 test images, manual vs. assisted) | **−80 % time per image** (29.7 s → 5.8 s, Mann-Whitney p < 0.0001, r = 0.88) |
 | Label quality vs. ground truth (F1, IoU ≥ 0.5) | manual 0.70 · assisted 0.93 · caveat: automation bias, see below |
@@ -57,14 +57,21 @@ the fine-tuned detector from this repository's
 
 ## Features
 
+**Dashboard and navigation**
+- Live statistics (images labelled, labels, share proposed by the AI, active detector and its
+  test mAP) and project cards with image preview, progress ring and annotation mode.
+- Command palette (`Ctrl+K`) to jump to any project; backend and AI status in the header.
+
 **Projects and images**
 - Projects with their own label classes; drag-and-drop upload (PNG / JPEG / WEBP, validated by
   content), thumbnail grid with status (*to do / in progress / done*) and progress bar.
 
 **Annotator**
 - Boxes and polygons on a zoomable, pannable canvas; select, move, resize, edit polygon points.
-- Keyboard-first: `B` box, `P` polygon, `V` select, `1`–`9` class, `Del`, `Ctrl+Z` undo,
-  `A`/`D` previous/next image, `Enter` done. Autosave after every change.
+- Tool rail with tooltips; keyboard-first: `B` box, `P` polygon, `V` select, `1`–`9` class,
+  `Del`, `Ctrl+Z` undo, `A`/`D` previous/next image, `Enter` done, `?` all shortcuts.
+  Autosave after every change.
+- Label panel with colour-coded confidence bars, so uncertain AI proposals stand out.
 
 **AI assistance** (*Assisted* mode)
 - ✨ **Suggest** (`S`, automatic on new images): the fine-tuned detector pre-labels the image;
@@ -176,7 +183,7 @@ evaluation and OpenVINO export. Guide: [docs/training.md](docs/training.md).
 docker compose up -d postgres storage   # API tests use a real PostgreSQL (host port 5433)
 cd backend
 uv sync
-uv run pytest                            # 112 tests; creates and migrates annotator_test
+uv run pytest                            # 114 tests; creates and migrates annotator_test
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
 uv run alembic revision --autogenerate -m "describe change"   # after changing app/models.py
 

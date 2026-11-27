@@ -107,3 +107,34 @@ def test_annotation_mode_rejects_unknown_values(client: TestClient) -> None:
         "/api/projects", json={"name": "Bad", "classes": ["a"], "annotation_mode": "auto"}
     )
     assert response.status_code == 422
+
+
+def test_project_lists_its_first_images_as_previews(
+    client: TestClient, project: dict[str, Any], upload: Callable[..., dict[str, Any]]
+) -> None:
+    ids = [upload(project["id"], name=f"{i}.png")["id"] for i in range(4)]
+    body = client.get(f"/api/projects/{project['id']}").json()
+    assert body["preview_image_ids"] == ids[:3]
+
+
+def test_stats_counts_images_and_labels_by_source(
+    client: TestClient, project: dict[str, Any], upload: Callable[..., dict[str, Any]]
+) -> None:
+    image = upload(project["id"])
+    client.put(
+        f"/api/images/{image['id']}/annotations",
+        json=[
+            {
+                "class_name": "helmet",
+                "geometry": {"type": "box", "bbox": [1, 1, 9, 9]},
+                "source": "ai",
+            },
+            {"class_name": "head", "geometry": {"type": "box", "bbox": [2, 2, 8, 8]}},
+        ],
+    )
+    client.patch(f"/api/images/{image['id']}", json={"status": "done"})
+    body = client.get("/api/stats").json()
+    assert body["images_done"] >= 1
+    assert body["labels_by_source"]["ai"] >= 1
+    assert body["labels_by_source"]["manual"] >= 1
+    assert body["labels_total"] == sum(body["labels_by_source"].values())

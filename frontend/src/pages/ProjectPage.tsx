@@ -1,3 +1,4 @@
+import { ChevronLeft, Download, Play, Trash2, Upload } from 'lucide-react'
 import { type DragEvent, useCallback, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
@@ -11,8 +12,10 @@ import {
   uploadImages,
 } from '../api/client'
 import type { Mode } from '../annotator/interactionLog'
+import { classColor } from '../annotator/shapes'
 import ModeSwitch from '../components/ModeSwitch'
 import ProgressBar from '../components/ProgressBar'
+import { useToast } from '../components/toast'
 import { useAsync, usePersistentState } from '../hooks'
 
 const STATUS_LABEL: Record<ImageStatus, string> = {
@@ -28,6 +31,7 @@ function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: 
   const [progress, setProgress] = useState<{ done: number; total: number }>()
   const [result, setResult] = useState<UploadResult>()
   const [error, setError] = useState<string>()
+  const toast = useToast()
 
   async function upload(fileList: FileList | null) {
     const files = [...(fileList ?? [])]
@@ -36,7 +40,15 @@ function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: 
     setResult(undefined)
     setProgress({ done: 0, total: files.length })
     try {
-      setResult(await uploadImages(projectId, files, (done, total) => setProgress({ done, total })))
+      const outcome = await uploadImages(projectId, files, (done, total) =>
+        setProgress({ done, total }),
+      )
+      setResult(outcome)
+      toast(
+        outcome.rejected.length ? 'info' : 'success',
+        `${outcome.uploaded.length} image${outcome.uploaded.length === 1 ? '' : 's'} uploaded`,
+        outcome.rejected.length ? `${outcome.rejected.length} rejected (see below)` : undefined,
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -78,7 +90,10 @@ function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: 
           <progress value={progress.done} max={progress.total} />
         </p>
       ) : (
-        <p>
+        <p className="dropzone-text">
+          <span className="dropzone-icon">
+            <Upload size={20} />
+          </span>
           Drop images here or{' '}
           <button type="button" className="link" onClick={() => input.current?.click()}>
             choose files
@@ -133,7 +148,7 @@ function ExportPanel({ projectId, doneCount }: { projectId: number; doneCount: n
           href={`/api/projects/${projectId}/export?format=${format}&scope=${scope}`}
           download
         >
-          ⬇ Download zip
+          <Download size={16} /> Download zip
         </a>
       )}
     </section>
@@ -216,15 +231,16 @@ export default function ProjectPage() {
 
   return (
     <main className="page wide">
-      <p>
-        <Link to="/">← Projects</Link>
-      </p>
+      <Link to="/" className="back-link">
+        <ChevronLeft size={16} /> Projects
+      </Link>
       <div className="page-header">
         <div>
           <h1>{project.data.name}</h1>
           <p className="chips">
             {project.data.classes.map((c, i) => (
               <span key={c} className="chip">
+                <i style={{ background: classColor(project.data?.classes ?? [], c) }} />
                 <kbd>{i + 1}</kbd> {c}
               </span>
             ))}
@@ -233,11 +249,12 @@ export default function ProjectPage() {
         <div className="actions">
           {firstOpen && (
             <Link className="button primary" to={`/projects/${projectId}/annotate/${firstOpen.id}`}>
+              <Play size={15} />
               {firstOpen.status === 'done' ? 'Review annotations' : 'Start annotating'}
             </Link>
           )}
           <button type="button" className="danger" onClick={() => void deleteProject()}>
-            Delete project
+            <Trash2 size={15} /> Delete
           </button>
         </div>
       </div>

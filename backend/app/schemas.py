@@ -61,6 +61,7 @@ class ProjectRead(ORMModel):
     created_at: datetime
     image_count: int = 0
     status_counts: dict[ImageStatus, int] = Field(default_factory=dict)
+    preview_image_ids: list[int] = Field(default_factory=list)  # first images, for thumbnails
 
 
 # ---------- Images ----------
@@ -179,6 +180,17 @@ class LogBatch(BaseModel):
 
 class LogBatchResult(BaseModel):
     inserted: int
+
+
+# ---------- Dashboard ----------
+
+
+class StatsRead(BaseModel):
+    projects: int
+    images_total: int
+    images_done: int
+    labels_total: int
+    labels_by_source: dict[str, int]
 
 
 # ---------- AI assistance ----------
