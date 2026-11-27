@@ -9,7 +9,7 @@ FALSE NEGATIVES (missed objects).
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 
 from app.services.geometry import Box, iou
@@ -125,3 +125,43 @@ def read_yolo_labels(text: str, classes: list[str], width: int, height: int) -> 
         box = (x_c - bw / 2, y_c - bh / 2, x_c + bw / 2, y_c + bh / 2)
         truths.append(Labeled(classes[int(cls)], box))
     return truths
+
+
+def average_precision(
+    predictions: Mapping[str, Sequence[Labeled]],
+    truths: Mapping[str, Sequence[Labeled]],
+    iou_threshold: float = 0.5,
+) -> dict[str, float]:
+    """AP per class over a whole dataset (keys = image ids), e.g. AP50 with the default.
+
+    Every prediction is matched as in `match`; sorting all of a class's predictions by
+    confidence gives a precision-recall curve, and AP is the area under it with all-point
+    interpolation (precision at recall r = the best precision at any recall >= r), as in
+    PASCAL VOC 2010+. Predictions should come from a LOW confidence threshold, otherwise the
+    curve is cut short. Classes without ground truth are left out (AP is undefined there).
+    """
+    hits: dict[str, list[tuple[float, bool]]] = {}
+    n_truths: dict[str, int] = {}
+    for image_id, image_truths in truths.items():
+        for truth in image_truths:
+            n_truths[truth.class_name] = n_truths.get(truth.class_name, 0) + 1
+        result = match(predictions.get(image_id, []), image_truths, iou_threshold)
+        for pred, _ in result.true_positives:
+            hits.setdefault(pred.class_name, []).append((pred.score, True))
+        for pred in result.false_positives:
+            hits.setdefault(pred.class_name, []).append((pred.score, False))
+
+    ap: dict[str, float] = {}
+    for class_name, total in n_truths.items():
+        ranked = sorted(hits.get(class_name, []), key=lambda h: h[0], reverse=True)
+        precisions, recalls, tp = [], [], 0
+        for rank, (_, is_tp) in enumerate(ranked, start=1):
+            tp += is_tp
+            precisions.append(tp / rank)
+            recalls.append(tp / total)
+        area, previous_recall = 0.0, 0.0
+        for i, recall in enumerate(recalls):
+            area += (recall - previous_recall) * max(precisions[i:])
+            previous_recall = recall
+        ap[class_name] = area
+    return ap

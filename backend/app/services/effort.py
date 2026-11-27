@@ -21,6 +21,7 @@ INTERACTIONS = {
     "undo",
     "magic_click",
     "smart_click",
+    "find_similar",
 }
 
 

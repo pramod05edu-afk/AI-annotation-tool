@@ -204,7 +204,8 @@ class ModelSlotStatus(BaseModel):
 
 
 class AiStatus(BaseModel):
-    detector: ModelSlotStatus
+    detector: ModelSlotStatus  # the fine-tuned specialist (its own fixed classes)
+    general: ModelSlotStatus  # the open-vocabulary detector (any label names)
     segmenter: ModelSlotStatus
 
 
@@ -217,10 +218,14 @@ class Suggestion(BaseModel):
     class_name: str
     bbox: tuple[float, float, float, float]  # x_min, y_min, x_max, y_max (image pixels)
     score: float
+    # Which model produced this box (one request can use the specialist AND the general model).
+    model: str | None = None
+    model_version_id: int | None = None
 
 
 class SuggestResult(BaseModel):
-    model_version_id: int | None
+    model_version_id: int | None  # the model of the first box; each box also names its own
+    models: list[str] = Field(default_factory=list)  # the models that ran for this image
     latency_ms: float
     suggestions: list[Suggestion]
     # Model classes that are not project classes, with how many boxes were dropped.
@@ -254,6 +259,21 @@ class ClickBoxRequest(BaseModel):
     point: tuple[float, float]  # where the user clicked (image pixels)
     # Boxes already labelled on this image: candidates that duplicate them are skipped.
     exclude: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=1000)
+
+
+class FindSimilarRequest(BaseModel):
+    # One or more boxes the user drew around examples of ONE kind of object.
+    examples: list[tuple[float, float, float, float]] = Field(min_length=1, max_length=10)
+    class_name: str  # the project label to give the objects found
+    conf: float = Field(default=0.25, ge=0.01, le=0.99)
+    # Boxes already labelled on this image (including the examples): not suggested again.
+    exclude: list[tuple[float, float, float, float]] = Field(default_factory=list, max_length=1000)
+
+
+class FindSimilarResult(BaseModel):
+    model_version_id: int | None
+    latency_ms: float
+    suggestions: list[Suggestion]
 
 
 class ClickBoxResult(BaseModel):

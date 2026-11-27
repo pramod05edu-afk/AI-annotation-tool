@@ -49,7 +49,7 @@ function CreateProjectForm() {
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Construction site helmets"
+          placeholder="e.g. Street scenes, Product shelf, Pets"
           required
         />
       </label>
@@ -58,11 +58,13 @@ function CreateProjectForm() {
         <input
           value={classes}
           onChange={(e) => setClasses(e.target.value)}
-          placeholder="helmet, head"
+          placeholder="e.g. car, bicycle, pedestrian"
           required
         />
         <span className="muted small">
-          Comma-separated. Their order sets the keyboard shortcuts 1–9.
+          Your own labels, comma-separated; their order sets the keyboard shortcuts 1–9. The AI
+          looks for them by name, so plain words work best (&quot;traffic light&quot;, not
+          &quot;TL_01&quot;).
         </span>
       </label>
       {parseClasses(classes).length > 0 && (
@@ -138,7 +140,7 @@ function Stats() {
       />
       <StatCard
         icon={<Cpu size={15} />}
-        label="Active detector"
+        label="Fine-tuned detector"
         value={map != null ? <CountUp value={map} decimals={3} /> : '–'}
         note={detector ? `${detector.name} · test mAP50-95` : 'no detector loaded'}
       />
@@ -199,7 +201,8 @@ export default function ProjectsPage() {
         <div>
           <h1>Projects</h1>
           <p className="muted">
-            Label images with a fine-tuned detector doing most of the work. Review, correct, export.
+            Label any images with your own labels while the AI does most of the work. Review,
+            correct, export.
           </p>
         </div>
         <button type="button" className="primary" onClick={() => setCreating(true)}>

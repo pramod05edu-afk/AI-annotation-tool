@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     detector_sha256: str = "36ff9006ed6258b708c2184f9a38e7ce046a119741e71e197b7283bed0a2f44d"
     # Downloaded automatically from the Ultralytics releases on first start if missing.
     segmenter_weights: str = "mobile_sam.pt"
+    # General open-vocabulary detector for labels the specialist does not know (any project).
+    # Also downloaded automatically, together with its text encoder (~250 MB, first start only).
+    general_weights: str = "yoloe-26s-seg.pt"
+    general_text_encoder: str = "mobileclip2_b.ts"
 
 
 @lru_cache

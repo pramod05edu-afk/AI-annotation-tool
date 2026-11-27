@@ -1,6 +1,11 @@
 # ---- Stage 1: install dependencies with uv (build tools stay out of the final image) ----
 FROM python:3.11-slim AS builder
 
+# git: one dependency (the CLIP tokenizer used by YOLOE) is installed from a pinned Git commit.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY --from=ghcr.io/astral-sh/uv:0.13.8 /uv /bin/uv
 ENV UV_COMPILE_BYTECODE=1 \
     UV_LINK_MODE=copy \

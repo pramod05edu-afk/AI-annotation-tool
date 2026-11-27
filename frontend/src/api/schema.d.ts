@@ -89,7 +89,7 @@ export interface paths {
         put?: never;
         /**
          * Click Box
-         * @description Smart click: the detector's best box (with its class) under the clicked point.
+         * @description Smart click: the best box (with its label) under the clicked point.
          */
         post: operations["click_box_api_images__image_id__click_box_post"];
         delete?: never;
@@ -109,6 +109,26 @@ export interface paths {
         get: operations["get_image_file_api_images__image_id__file_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/images/{image_id}/find-similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Find Similar
+         * @description Find more objects like the example boxes, for labels that no model knows by name.
+         */
+        post: operations["find_similar_api_images__image_id__find_similar_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -166,7 +186,7 @@ export interface paths {
         put?: never;
         /**
          * Suggest Boxes
-         * @description Pre-label an image: the detector's boxes, renamed to the project's class names.
+         * @description Pre-label an image with boxes for the project's own labels.
          */
         post: operations["suggest_boxes_api_images__image_id__suggest_post"];
         delete?: never;
@@ -323,6 +343,7 @@ export interface components {
         /** AiStatus */
         AiStatus: {
             detector: components["schemas"]["ModelSlotStatus"];
+            general: components["schemas"]["ModelSlotStatus"];
             segmenter: components["schemas"]["ModelSlotStatus"];
         };
         /** AnnotationIn */
@@ -425,6 +446,39 @@ export interface components {
          * @enum {string}
          */
         ExportScope: "all" | "done";
+        /** FindSimilarRequest */
+        FindSimilarRequest: {
+            /** Class Name */
+            class_name: string;
+            /**
+             * Conf
+             * @default 0.25
+             */
+            conf: number;
+            /** Examples */
+            examples: [
+                number,
+                number,
+                number,
+                number
+            ][];
+            /** Exclude */
+            exclude?: [
+                number,
+                number,
+                number,
+                number
+            ][];
+        };
+        /** FindSimilarResult */
+        FindSimilarResult: {
+            /** Latency Ms */
+            latency_ms: number;
+            /** Model Version Id */
+            model_version_id: number | null;
+            /** Suggestions */
+            suggestions: components["schemas"]["Suggestion"][];
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -526,7 +580,7 @@ export interface components {
          * ModelTask
          * @enum {string}
          */
-        ModelTask: "detect" | "segment" | "embed";
+        ModelTask: "detect" | "detect_open" | "segment" | "embed";
         /** ModelVersionCreate */
         ModelVersionCreate: {
             /** Metrics */
@@ -679,6 +733,8 @@ export interface components {
             latency_ms: number;
             /** Model Version Id */
             model_version_id: number | null;
+            /** Models */
+            models?: string[];
             /** Suggestions */
             suggestions: components["schemas"]["Suggestion"][];
         };
@@ -693,6 +749,10 @@ export interface components {
             ];
             /** Class Name */
             class_name: string;
+            /** Model */
+            model?: string | null;
+            /** Model Version Id */
+            model_version_id?: number | null;
             /** Score */
             score: number;
         };
@@ -988,6 +1048,41 @@ export interface operations {
                     "image/jpeg": unknown;
                     "image/png": unknown;
                     "image/webp": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    find_similar_api_images__image_id__find_similar_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                image_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindSimilarRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindSimilarResult"];
                 };
             };
             /** @description Validation Error */

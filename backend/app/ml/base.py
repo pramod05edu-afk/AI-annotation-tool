@@ -1,7 +1,8 @@
 """What the rest of the app needs from an AI model, independent of the library behind it.
 
 The API only talks to these interfaces (Protocols). The real implementations (YOLO via
-Ultralytics/OpenVINO, MobileSAM) live in yolo.py and sam.py; the tests use small fakes.
+Ultralytics/OpenVINO, YOLOE, MobileSAM) live in yolo.py, yoloe.py and sam.py; the tests use
+small fakes.
 Swapping YOLO for another detector later means writing one new class, nothing else changes.
 """
 
@@ -37,6 +38,27 @@ class Detector(Protocol):
 
     def detect(self, image: Image.Image, conf: float) -> list[Detection]:
         """All objects with a confidence of at least `conf`."""
+        ...
+
+
+class OpenVocabDetector(Protocol):
+    """A general-purpose detector: finds the classes it is TOLD to look for, given as text."""
+
+    name: str
+
+    def detect_classes(
+        self, image: Image.Image, classes: Sequence[str], conf: float
+    ) -> list[Detection]:
+        """Objects of the given classes (any names, e.g. a project's labels).
+
+        Each detection's class_name is one of `classes`, spelled exactly as given.
+        """
+        ...
+
+    def find_similar(
+        self, image: Image.Image, examples: Sequence[Box], conf: float
+    ) -> list[Detection]:
+        """Objects that look like the example boxes (visual prompt); no class name needed."""
         ...
 
 

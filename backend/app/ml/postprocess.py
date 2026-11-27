@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
 import cv2
 import numpy as np
@@ -25,6 +25,36 @@ def clip_box(box: Box, width: float, height: float) -> Box | None:
     if x2 - x1 < 1 or y2 - y1 < 1:
         return None
     return (round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1))
+
+
+def prompt_text(label: str) -> str:
+    """A label as a text prompt: "traffic_light" / "traffic-light" -> "traffic light".
+
+    Text encoders were trained on captions, so plain words work better than identifiers.
+    """
+    words = label.replace("_", " ").replace("-", " ").split()
+    return " ".join(words) or label
+
+
+def split_classes(
+    project_classes: Sequence[str], specialist_classes: Sequence[str]
+) -> tuple[list[str], list[str]]:
+    """Which project labels the fine-tuned specialist knows, and which the general model needs.
+
+    Case-insensitive: a project label "Helmet" is the specialist's "helmet". Order is kept.
+    """
+    known = {name.lower() for name in specialist_classes}
+    for_specialist = [c for c in project_classes if c.lower() in known]
+    for_general = [c for c in project_classes if c.lower() not in known]
+    return for_specialist, for_general
+
+
+def drop_overlapping(
+    detections: Iterable[Detection], existing: Iterable[Box], overlap_limit: float = 0.5
+) -> list[Detection]:
+    """Detections that do not duplicate an existing box (IoU below the limit)."""
+    boxes = list(existing)
+    return [d for d in detections if all(iou(d.bbox, b) < overlap_limit for b in boxes)]
 
 
 def map_to_project_classes(

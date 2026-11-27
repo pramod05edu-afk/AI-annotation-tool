@@ -52,7 +52,8 @@ class AnnotationSource(StrEnum):
 
 
 class ModelTask(StrEnum):
-    DETECT = "detect"
+    DETECT = "detect"  # the fine-tuned specialist (fixed classes)
+    DETECT_OPEN = "detect_open"  # the general open-vocabulary detector (any classes)
     SEGMENT = "segment"
     EMBED = "embed"
 

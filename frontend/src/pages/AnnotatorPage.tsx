@@ -17,6 +17,7 @@ import {
   MousePointer2,
   Pentagon,
   RotateCcw,
+  ScanSearch,
   Sparkles,
   Square,
   Trash2,
@@ -102,6 +103,7 @@ const SHORTCUTS: [string, string][] = [
 const AI_SHORTCUTS: [string, string][] = [
   ['S', 'suggest boxes (AI)'],
   ['C', 'smart click: click an object -> box with its class'],
+  ['E', 'find similar: select a box, the AI adds more objects like it'],
   ['M', 'magic tool: click = object, Shift / right click = not object'],
   ['Enter', 'accept the magic outline'],
 ]
@@ -114,15 +116,25 @@ const toBox = ([x1 = 0, y1 = 0, x2 = 0, y2 = 0]: number[]): [number, number, num
   y2,
 ]
 
+const MODEL_NAMES = {
+  detector: 'fine-tuned detector',
+  general: 'general AI model',
+  segmenter: 'segmentation model',
+} as const
+
 /** Why an AI button is disabled, for its tooltip. */
-function modelHint(ai: AiStatus | undefined, which: 'detector' | 'segmenter') {
+function modelHint(ai: AiStatus | undefined, which: keyof typeof MODEL_NAMES) {
   const slot = ai?.[which]
+  const name = MODEL_NAMES[which]
   if (!slot) return 'Checking the AI models…'
-  if (slot.state === 'loading') return `The ${which} is loading…`
-  if (slot.state === 'failed')
-    return `The ${which} is unavailable: ${slot.error ?? 'unknown error'}`
-  return `The ${which} is ${slot.state}`
+  if (slot.state === 'loading') return `The ${name} is loading…`
+  if (slot.state === 'failed') return `The ${name} is unavailable: ${slot.error ?? 'unknown error'}`
+  return `The ${name} is ${slot.state}`
 }
+
+/** "yoloe-26s-seg" -> "YOLOE (general)", "yolo11n_helmet" -> "yolo11n_helmet (fine-tuned)". */
+const modelLabel = (name: string | null | undefined) =>
+  !name ? 'AI' : name.startsWith('yoloe') ? 'YOLOE (general)' : `${name} (fine-tuned)`
 
 const isTyping = (target: EventTarget | null) =>
   target instanceof HTMLElement && ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)
@@ -159,7 +171,10 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
 
   // AI assistance
   const assisted = p.mode === 'assisted'
-  const detectorReady = p.ai?.detector.state === 'ready'
+  const generalReady = p.ai?.general.state === 'ready'
+  // Suggest / smart click: the fine-tuned specialist for the labels it was trained on, the
+  // general model for all others (the backend decides per project); either one is enough.
+  const detectorReady = p.ai?.detector.state === 'ready' || generalReady
   const segmenterReady = p.ai?.segmenter.state === 'ready'
   const [aiBusy, setAiBusy] = useState(false)
   const [aiMessage, setAiMessage] = useState<string>()
@@ -290,7 +305,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         ...newBox(toBox(s.bbox), s.class_name),
         source: 'ai',
         score: s.score,
-        modelVersionId: result.model_version_id,
+        modelVersionId: s.model_version_id ?? result.model_version_id,
       }))
       // Keep everything the human made or changed; replace only untouched AI boxes.
       const before = latest.current.shapes
@@ -306,9 +321,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
       const ignored = Object.entries(result.ignored)
         .map(([name, n]) => `${n} × ${name}`)
         .join(', ')
+      const used = (result.models ?? []).map(modelLabel).join(' + ')
       setAiMessage(
         `${suggestions.length} suggestion${suggestions.length === 1 ? '' : 's'} · ` +
-          `${Math.round(result.latency_ms)} ms${ignored ? ` · ignored: ${ignored}` : ''}`,
+          `${Math.round(result.latency_ms)} ms${used ? ` · ${used}` : ''}` +
+          `${ignored ? ` · ignored: ${ignored}` : ''}`,
       )
     } catch (e) {
       setAiMessage(`⚠ ${errorMessage(e)}`)
@@ -323,7 +340,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
    */
   async function smartClick(point: Point) {
     if (!detectorReady) {
-      setAiMessage(`⚠ ${modelHint(p.ai, 'detector')}`)
+      setAiMessage(`⚠ ${modelHint(p.ai, 'general')}`)
       return
     }
     setAiMessage('Looking for an object…')
@@ -344,14 +361,64 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         ...newBox(toBox(found.bbox), found.class_name),
         source: 'ai',
         score: found.score,
-        modelVersionId: result.model_version_id,
+        modelVersionId: found.model_version_id ?? result.model_version_id,
       })
       setAiMessage(
         `${found.class_name} added (${found.score.toFixed(2)}) · ${Math.round(result.latency_ms)} ms` +
-          ' · wrong class? press 1 / 2',
+          ` · ${modelLabel(found.model)} · wrong class? press its number key`,
       )
     } catch (e) {
       setAiMessage(`⚠ ${errorMessage(e)}`)
+    }
+  }
+
+  /**
+   * Find similar: the selected box is an EXAMPLE, the general model adds more objects that look
+   * like it (visual prompt). Works for labels no model knows by name (a product, a defect).
+   */
+  async function findSimilar() {
+    if (!assisted || aiBusy) return
+    const example = latest.current.shapes.find((s) => s.id === selectedId)
+    if (!example || example.kind !== 'box') {
+      setAiMessage('⚠ Select a box first (V, then click it): it is the example to search for')
+      return
+    }
+    if (!generalReady) {
+      setAiMessage(`⚠ ${modelHint(p.ai, 'general')}`)
+      return
+    }
+    setAiBusy(true)
+    setAiMessage('Looking for similar objects…')
+    try {
+      const result = unwrap(
+        await api.POST('/api/images/{image_id}/find-similar', {
+          ...annotationsPath,
+          body: {
+            examples: [example.box],
+            class_name: example.className,
+            conf: p.confidence,
+            exclude: latest.current.shapes.map(bounds),
+          },
+        }),
+      )
+      const found: Shape[] = result.suggestions.map((s) => ({
+        ...newBox(toBox(s.bbox), s.class_name),
+        source: 'ai',
+        score: s.score,
+        modelVersionId: s.model_version_id ?? result.model_version_id,
+      }))
+      if (found.length > 0) commit([...latest.current.shapes, ...found])
+      log('find_similar', { found: found.length, latency_ms: result.latency_ms })
+      setAiMessage(
+        found.length > 0
+          ? `${found.length} more “${example.className}” found · ` +
+              `${Math.round(result.latency_ms)} ms · YOLOE (general)`
+          : 'No similar objects found · try a lower min. confidence',
+      )
+    } catch (e) {
+      setAiMessage(`⚠ ${errorMessage(e)}`)
+    } finally {
+      setAiBusy(false)
     }
   }
 
@@ -573,6 +640,9 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
       case 's':
         void suggest()
         return
+      case 'e':
+        void findSimilar()
+        return
       case 'f':
         return setView(null)
       case '?':
@@ -739,12 +809,26 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
                 disabled={!detectorReady || aiBusy}
                 title={
                   detectorReady
-                    ? 'Suggest boxes with the detector (S)'
-                    : modelHint(p.ai, 'detector')
+                    ? 'Suggest boxes for this project’s labels (S)'
+                    : modelHint(p.ai, 'general')
                 }
               >
                 <Sparkles size={15} className={aiBusy ? 'spin' : ''} />
                 Suggest <kbd>S</kbd>
+              </button>
+              <button
+                type="button"
+                className="find-similar"
+                onClick={() => void findSimilar()}
+                disabled={!generalReady || aiBusy}
+                title={
+                  generalReady
+                    ? 'Select a box, then find more objects like it (E)'
+                    : modelHint(p.ai, 'general')
+                }
+              >
+                <ScanSearch size={15} />
+                Find similar <kbd>E</kbd>
               </button>
               <label
                 className="confidence"

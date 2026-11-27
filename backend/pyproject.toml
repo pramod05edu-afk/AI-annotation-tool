@@ -7,6 +7,7 @@ requires-python = ">=3.11,<3.13"
 dependencies = [
     "alembic>=1.20.1",
     "boto3>=1.44.5",
+    "clip",
     "fastapi>=0.164.0",
     "openvino==2026.4.1", # fast CPU inference for the exported detector
     "pgvector>=0.5.1",
@@ -26,6 +27,7 @@ dependencies = [
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
 torchvision = { index = "pytorch-cpu" }
+clip = { git = "https://github.com/ultralytics/CLIP.git", rev = "7ffa84b3bfa40c42ecc1c77147a855e69cb2dd40" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"

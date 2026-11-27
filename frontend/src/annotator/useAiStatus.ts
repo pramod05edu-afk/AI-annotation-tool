@@ -15,7 +15,8 @@ export function useAiStatus(): AiStatus | undefined {
         const next = unwrap(await api.GET('/api/ai/status'))
         if (cancelled) return
         setStatus(next)
-        if (next.detector.state === 'loading' || next.segmenter.state === 'loading') {
+        const slots = [next.detector, next.general, next.segmenter]
+        if (slots.some((slot) => slot.state === 'loading')) {
           timer = setTimeout(() => void poll(), POLL_MS)
         }
       } catch {
