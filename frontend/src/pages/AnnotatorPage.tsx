@@ -12,17 +12,17 @@ import {
   ChevronRight,
   Crosshair,
   Keyboard,
+  LassoSelect,
+  LoaderCircle,
   type LucideIcon,
   Maximize,
   MousePointer2,
   Pentagon,
   RotateCcw,
   ScanSearch,
-  Sparkles,
   Square,
   Trash2,
   Undo2,
-  WandSparkles,
 } from 'lucide-react'
 import { type CSSProperties, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -82,7 +82,7 @@ const TOOLS: {
     tool: 'magic',
     key: 'M',
     label: 'Magic: click an object, get its outline (SAM)',
-    icon: WandSparkles,
+    icon: LassoSelect,
     assistedOnly: true,
   },
 ]
@@ -713,11 +713,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
     <div className="annotator">
       <nav className="tool-rail" aria-label="Tools">
         {TOOLS.filter((t) => assisted || !t.assistedOnly).map(
-          ({ tool, key, label, icon: Icon }) => (
+          ({ tool, key, label, icon: Icon, assistedOnly }) => (
             <button
               key={tool}
               type="button"
-              className={`rail-button ${p.tool === tool ? 'active' : ''}`}
+              className={`rail-button ${assistedOnly ? 'ai' : ''} ${p.tool === tool ? 'active' : ''}`}
               onClick={() => chooseTool(tool)}
               data-tip={`${label} (${key})`}
               aria-label={label}
@@ -804,7 +804,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
             <>
               <button
                 type="button"
-                className="primary suggest"
+                className="signal suggest"
                 onClick={() => void suggest()}
                 disabled={!detectorReady || aiBusy}
                 title={
@@ -813,7 +813,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
                     : modelHint(p.ai, 'general')
                 }
               >
-                <Sparkles size={15} className={aiBusy ? 'spin' : ''} />
+                {aiBusy ? (
+                  <LoaderCircle size={15} className="spin" />
+                ) : (
+                  <span className="ai-tag">AI</span>
+                )}
                 Suggest <kbd>S</kbd>
               </button>
               <button
@@ -848,7 +852,16 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
             </>
           )}
 
-          <span className="separator" />
+          <span className="spacer" />
+          <span
+            className={`save-state ${saveError ? 'error' : dirty || saving ? 'pending' : 'ok'}`}
+          >
+            {!saveError && !dirty && !saving && <Check size={14} />}
+            {saveLabel}
+          </span>
+        </div>
+
+        <div className="classbar">
           <div className="class-picker" role="group" aria-label="Class for new shapes">
             {classes.map((c, i) => (
               <button
@@ -865,14 +878,6 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
               </button>
             ))}
           </div>
-
-          <span className="spacer" />
-          <span
-            className={`save-state ${saveError ? 'error' : dirty || saving ? 'pending' : 'ok'}`}
-          >
-            {!saveError && !dirty && !saving && <Check size={14} />}
-            {saveLabel}
-          </span>
         </div>
 
         <div className="workspace">
@@ -900,11 +905,11 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
               onMagicClick={(point, label) => void magicClick(point, label)}
               onSmartClick={(point) => void smartClick(point)}
             />
-            <div className="canvas-hint">Wheel: zoom · Space + drag: pan · F: fit</div>
+            <div className="canvas-hint">wheel zoom · space + drag pan · F fit</div>
             {assisted && aiMessage && (
               <div className={`ai-toast ${aiError ? 'error' : ''}`} role="status">
                 <span className="ai-toast-icon">
-                  <Sparkles size={15} />
+                  <span className="ai-tag">AI</span>
                 </span>
                 {aiMessage.replace(/^⚠ /, '')}
               </div>
@@ -914,7 +919,9 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
           <aside className="sidebar">
             <div className="sidebar-head">
               <div className="sidebar-title">
-                <h3>Labels · {shapes.length}</h3>
+                <h3>
+                  Labels <span>{shapes.length}</span>
+                </h3>
                 <span className={`badge ${status}`}>{status.replace('_', ' ')}</span>
               </div>
               <div className="progress thin" title="Position in the project">
@@ -959,7 +966,13 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
                   </select>
                   <span className="source-tag">
                     {s.kind === 'polygon' ? 'poly' : 'box'}
-                    {s.source === 'manual' ? '' : s.source === 'ai' ? ' · AI' : ' · AI ✎'}
+                    {s.source !== 'manual' && (
+                      <>
+                        {' · '}
+                        <b>AI</b>
+                        {s.source === 'ai_edited' && ' ✎'}
+                      </>
+                    )}
                   </span>
                   {s.score != null && s.source !== 'manual' ? (
                     <span
@@ -988,6 +1001,13 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
                 </li>
               ))}
             </ul>
+            {shapes.some((s) => s.source !== 'manual') && (
+              <p className="legend">
+                dashed = AI proposal, untouched
+                <br />
+                solid = yours · ✎ = AI, corrected by you
+              </p>
+            )}
 
             <div className="sidebar-foot">
               {status === 'done' ? (

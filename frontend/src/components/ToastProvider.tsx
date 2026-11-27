@@ -1,10 +1,10 @@
-import { CircleCheck, Info, Sparkles, TriangleAlert, X } from 'lucide-react'
+import { CircleCheck, Cpu, Info, TriangleAlert, X } from 'lucide-react'
 import { type ReactNode, useCallback, useRef, useState } from 'react'
 
 import { type Toast, ToastContext, type ToastKind } from './toast'
 
 const VISIBLE_MS = 4000
-const ICONS = { info: Info, success: CircleCheck, error: TriangleAlert, ai: Sparkles }
+const ICONS = { info: Info, success: CircleCheck, error: TriangleAlert, ai: Cpu }
 
 /** Notifications in the bottom-right corner; each disappears after a few seconds. */
 export default function ToastProvider({ children }: { children: ReactNode }) {

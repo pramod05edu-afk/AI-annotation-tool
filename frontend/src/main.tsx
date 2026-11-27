@@ -1,4 +1,6 @@
-import '@fontsource-variable/inter' // bundled with the app: no request to an external font server
+// Fonts are bundled with the app: no request to an external font server.
+import '@fontsource-variable/instrument-sans'
+import '@fontsource-variable/jetbrains-mono'
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'

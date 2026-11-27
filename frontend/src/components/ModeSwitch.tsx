@@ -1,3 +1,5 @@
+import { Lock } from 'lucide-react'
+
 import type { Mode } from '../annotator/interactionLog'
 
 interface ModeSwitchProps {
@@ -14,7 +16,7 @@ export default function ModeSwitch({ mode, locked, onChange }: ModeSwitchProps) 
   if (locked) {
     return (
       <span className={`mode-lock ${mode}`} title="This project prescribes the annotation mode">
-        🔒 {LABEL[mode]} mode
+        <Lock size={11} /> {LABEL[mode]} mode
       </span>
     )
   }

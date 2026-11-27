@@ -3,6 +3,7 @@ import { lazy, Suspense, useCallback, useEffect, useState } from 'react'
 import { Link, NavLink, Route, Routes } from 'react-router'
 
 import { api, unwrap } from './api/client'
+import { useAiStatus } from './annotator/useAiStatus'
 import CommandPalette from './components/CommandPalette'
 import { useAsync } from './hooks'
 import ProjectPage from './pages/ProjectPage'
@@ -14,20 +15,20 @@ const AnnotatorPage = lazy(() => import('./pages/AnnotatorPage'))
 /** Is the backend (database + storage) healthy, and are the AI models ready? */
 function HealthStatus() {
   const loadHealth = useCallback(async () => unwrap(await api.GET('/api/health')), [])
-  const loadAi = useCallback(async () => unwrap(await api.GET('/api/ai/status')), [])
   const health = useAsync(loadHealth)
-  const ai = useAsync(loadAi)
+  const ai = useAiStatus() // polls until every model has loaded
   const ok = health.data?.status === 'ok'
-  const aiReady = ai.data?.detector.state === 'ready' || ai.data?.general.state === 'ready'
+  const slots = ai ? [ai.detector, ai.general, ai.segmenter] : []
+  const ready = slots.filter((slot) => slot.state === 'ready').length
   const label = health.error
-    ? 'Backend offline'
+    ? 'backend offline'
     : !health.data
-      ? 'Connecting…'
+      ? 'connecting…'
       : !ok
-        ? 'Backend degraded'
-        : aiReady
-          ? 'Backend ok · AI ready'
-          : 'Backend ok · AI loading'
+        ? 'backend degraded'
+        : ready > 0
+          ? `${ready} model${ready === 1 ? '' : 's'} ready`
+          : 'models loading…'
   const title = health.data
     ? `Database ${health.data.database ? 'ok' : 'down'} · storage ${health.data.storage ? 'ok' : 'down'}`
     : (health.error ?? 'Checking backend…')
@@ -61,8 +62,10 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <Link to="/" className="brand">
-          <span className="brand-mark">◆</span>
-          Annotate<span className="brand-suffix">.ai</span>
+          <span className="brand-mark" aria-hidden>
+            <i />
+          </span>
+          Annotate
         </Link>
         <nav className="nav-links">
           <NavLink to="/" end>
@@ -71,7 +74,7 @@ export default function App() {
         </nav>
         <button type="button" className="search-pill" onClick={() => setPaletteOpen(true)}>
           <Search size={15} />
-          Search projects and actions…
+          Search projects and actions
           <kbd>Ctrl K</kbd>
         </button>
         <HealthStatus />
