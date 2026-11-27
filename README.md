@@ -106,7 +106,8 @@ frontend: nginx ──/api──► backend: FastAPI (Python 3.11)
                                    └─ MobileSAM                       (magic click)
 ```
 
-Key design decisions (justified in [the report](docs/) and [decision records](docs/decisions/)):
+Key design decisions (justified in the project report; see also the
+[decision record on object storage](docs/decisions/0002-object-storage-seaweedfs.md)):
 
 | Choice | Why |
 |---|---|
