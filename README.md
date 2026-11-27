@@ -169,7 +169,8 @@ uv run python scripts/prepare_dataset.py --src <downloaded dataset> --out <prepa
 ```
 
 **Delivered dataset:** the 100 *export* images labelled in the app (assisted, reviewed), exported
-as COCO and YOLO: 100 images, 498 boxes (attached to the submission).
+as COCO and YOLO: 100 images, 498 boxes. Download both zips (with SHA-256 checksums) from
+[GitHub Release `dataset-v1`](https://github.com/pramod05edu-afk/AI-annotation-tool/releases/tag/dataset-v1).
 
 ## Model training
 
