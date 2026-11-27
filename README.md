@@ -9,6 +9,8 @@ Use case: labelling **construction-site helmet compliance**: every `helmet` (hea
 hat) and every `head` without one. Built as the individual project of the *AI Vision* module,
 SRH Hochschule Heidelberg.
 
+![Annotator in assisted mode: the fine-tuned detector's proposals with class and confidence](docs/images/annotator.jpg)
+
 ## Results at a glance
 
 | | Result |

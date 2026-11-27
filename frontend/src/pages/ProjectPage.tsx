@@ -251,7 +251,7 @@ export default function ProjectPage() {
         />
         <span className="muted small">
           {project.data.annotation_mode != null
-            ? 'fixed for this project (effort study)'
+            ? 'fixed for this project (e.g. for a controlled study)'
             : 'choose before you start annotating'}
         </span>
       </div>

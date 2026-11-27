@@ -13,10 +13,7 @@ const LABEL: Record<Mode, string> = { manual: 'Manual', assisted: 'Assisted' }
 export default function ModeSwitch({ mode, locked, onChange }: ModeSwitchProps) {
   if (locked) {
     return (
-      <span
-        className={`mode-lock ${mode}`}
-        title="This project prescribes the annotation mode (effort study)"
-      >
+      <span className={`mode-lock ${mode}`} title="This project prescribes the annotation mode">
         🔒 {LABEL[mode]} mode
       </span>
     )
