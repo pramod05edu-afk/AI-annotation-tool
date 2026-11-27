@@ -10,10 +10,12 @@ import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import {
   Circle,
   Image as KonvaImage,
+  Label,
   Layer,
   Line,
   Rect,
   Stage,
+  Tag,
   Text,
   Transformer,
 } from 'react-konva'
@@ -80,6 +82,12 @@ const withAlpha = (hex: string, alpha: number) =>
     .padStart(2, '0')
 
 const roundBox = (b: Box): Box => [round(b[0]), round(b[1]), round(b[2]), round(b[3])]
+
+/** Black or white text, whichever reads better on this background colour (#rrggbb). */
+function textOn(hex: string) {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+  return 0.299 * (r ?? 0) + 0.587 * (g ?? 0) + 0.114 * (b ?? 0) > 150 ? '#17150f' : '#ffffff'
+}
 
 export default function AnnotationCanvas(p: CanvasProps) {
   const { image, tool } = p
@@ -331,19 +339,22 @@ export default function AnnotationCanvas(p: CanvasProps) {
                 : renderPolygon(s, color, highlight)
             })}
 
-            {/* class labels above each shape */}
+            {/* class tags above each shape: solid colour, readable on any photo */}
             {p.shapes.map((s) => {
               const [x, y] = s.kind === 'box' ? s.box : (s.points[0] ?? [0, 0])
+              const color = classColor(p.classes, s.className)
+              const score = s.score != null && s.source !== 'manual' ? ` ${s.score.toFixed(2)}` : ''
               return (
-                <Text
-                  key={`label-${s.id}`}
-                  x={x}
-                  y={y - px(15)}
-                  text={s.score != null ? `${s.className} ${s.score.toFixed(2)}` : s.className}
-                  fontSize={px(12)}
-                  fill={classColor(p.classes, s.className)}
-                  listening={false}
-                />
+                <Label key={`label-${s.id}`} x={x} y={y - px(19)} listening={false}>
+                  <Tag fill={color} cornerRadius={px(3)} />
+                  <Text
+                    text={`${s.className}${score}`}
+                    fontFamily="JetBrains Mono Variable, ui-monospace, monospace"
+                    fontSize={px(11)}
+                    padding={px(4)}
+                    fill={textOn(color)}
+                  />
+                </Label>
               )
             })}
 

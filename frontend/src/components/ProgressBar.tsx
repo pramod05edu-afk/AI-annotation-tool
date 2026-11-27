@@ -1,6 +1,6 @@
 import type { Project } from '../api/client'
 
-/** Green = done, amber = in progress, grey = still to do. */
+/** Dark = done, light = in progress, empty = still to do. */
 export default function ProgressBar({ project }: { project: Project }) {
   const total = project.image_count
   const done = project.status_counts?.done ?? 0

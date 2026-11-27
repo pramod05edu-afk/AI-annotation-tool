@@ -13,7 +13,7 @@ Case study used for fine-tuning and evaluation: **construction-site helmet compl
 `helmet` (head wearing a hard hat) and every `head` without one. Built as the individual project
 of the *AI Vision* module, SRH Hochschule Heidelberg.
 
-![Annotator in assisted mode: the fine-tuned detector's proposals with class and confidence](docs/images/annotator.jpg)
+![Annotator in assisted mode: the general model proposes boxes for labels it was never trained on (umbrella, person); dashed = untouched AI proposal](docs/images/annotator.jpg)
 
 ## Results at a glance
 
@@ -65,9 +65,15 @@ releases (~330 MB in total, first start only).
 ## Features
 
 **Dashboard and navigation**
-- Live statistics (images labelled, labels, share proposed by the AI, active detector and its
-  test mAP) and project cards with image preview, progress ring and annotation mode.
-- Command palette (`Ctrl+K`) to jump to any project; backend and AI status in the header.
+- Live statistics (images labelled, labels, share proposed by the AI, the fine-tuned detector's
+  test mAP), project cards with image preview, labels, progress and annotation mode, and filters
+  (assisted / manual / in progress / done) with counts.
+- Command palette (`Ctrl+K`) to jump to any project; backend status and number of loaded models
+  in the header.
+- Design "Studio Light": a calm, light interface where **one signal colour (orange) marks
+  everything the AI did** (Suggest, AI tags, AI share), monospace for numbers and scores, and a
+  dark lightbox canvas so photos keep their contrast. Fonts are bundled (no external requests);
+  the class palette is colour-blind safe (Okabe-Ito).
 
 **Projects and images**
 - Projects with **their own labels** (any names, any number) for **any kind of image**;
@@ -262,5 +268,7 @@ Interactive docs: http://localhost:3000/api/docs
   the first 128 images of COCO train2017 (Lin et al., 2014; annotations CC BY 4.0).
 - [MobileSAM](https://github.com/ChaoningZhang/MobileSAM) (Apache-2.0) via Ultralytics;
   [Segment Anything](https://segment-anything.com/) (Kirillov et al., 2023).
+- Fonts: Instrument Sans and JetBrains Mono (SIL Open Font License), bundled via Fontsource;
+  icons: Lucide (ISC).
 - [OpenVINO](https://github.com/openvinotoolkit/openvino) (Apache-2.0), FastAPI, React, Konva,
   PostgreSQL, SeaweedFS.

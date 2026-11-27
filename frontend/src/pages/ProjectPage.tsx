@@ -283,11 +283,11 @@ export default function ProjectPage() {
             type="button"
             role="tab"
             aria-selected={filter === s}
-            className={filter === s ? 'active' : ''}
+            className={`pill ${filter === s ? 'active' : ''}`}
             onClick={() => setFilter(s)}
           >
-            {s === 'all' ? 'All' : STATUS_LABEL[s]} (
-            {s === 'all' ? all.length : (project.data?.status_counts?.[s] ?? 0)})
+            {s === 'all' ? 'All' : STATUS_LABEL[s]}{' '}
+            <i>{s === 'all' ? all.length : (project.data?.status_counts?.[s] ?? 0)}</i>
           </button>
         ))}
       </div>
