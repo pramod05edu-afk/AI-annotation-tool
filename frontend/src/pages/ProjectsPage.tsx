@@ -1,8 +1,12 @@
-import { type FormEvent, useCallback, useState } from 'react'
-import { Link, useNavigate } from 'react-router'
+import { Bot, Cpu, Images, Lock, Plus, Tags } from 'lucide-react'
+import { type FormEvent, type ReactNode, useCallback, useState } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 
-import { api, unwrap } from '../api/client'
-import ProgressBar from '../components/ProgressBar'
+import { api, imageFileUrl, type Project, unwrap } from '../api/client'
+import CountUp from '../components/CountUp'
+import Modal from '../components/Modal'
+import ProgressRing from '../components/ProgressRing'
+import { classColor } from '../annotator/shapes'
 import { useAsync } from '../hooks'
 
 /** Parse "helmet, head" (commas or new lines) into a clean, de-duplicated class list. */
@@ -38,11 +42,11 @@ function CreateProjectForm() {
   }
 
   return (
-    <form className="card form" onSubmit={(e) => void submit(e)}>
-      <h2>New project</h2>
+    <form className="form" onSubmit={(e) => void submit(e)}>
       <label>
         Name
         <input
+          autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Construction site helmets"
@@ -50,19 +54,32 @@ function CreateProjectForm() {
         />
       </label>
       <label>
-        Classes <span className="muted">(comma-separated; order = keyboard shortcuts 1–9)</span>
+        Classes
         <input
           value={classes}
           onChange={(e) => setClasses(e.target.value)}
           placeholder="helmet, head"
           required
         />
+        <span className="muted small">
+          Comma-separated. Their order sets the keyboard shortcuts 1–9.
+        </span>
       </label>
+      {parseClasses(classes).length > 0 && (
+        <p className="chips">
+          {parseClasses(classes).map((c, i, all) => (
+            <span key={c} className="chip">
+              <i style={{ background: classColor(all, c) }} />
+              {i < 9 && <kbd>{i + 1}</kbd>} {c}
+            </span>
+          ))}
+        </p>
+      )}
       {error && <p className="error">{error}</p>}
       <button
         type="submit"
         className="primary"
-        disabled={busy || parseClasses(classes).length === 0}
+        disabled={busy || !name.trim() || parseClasses(classes).length === 0}
       >
         {busy ? 'Creating…' : 'Create project'}
       </button>
@@ -70,39 +87,153 @@ function CreateProjectForm() {
   )
 }
 
-export default function ProjectsPage() {
-  const load = useCallback(async () => unwrap(await api.GET('/api/projects')), [])
-  const { data: projects, error, loading } = useAsync(load)
+function StatCard(props: { icon: ReactNode; label: string; value: ReactNode; note: string }) {
+  return (
+    <div className="stat">
+      <div className="stat-label">
+        {props.icon}
+        {props.label}
+      </div>
+      <div className="stat-value">{props.value}</div>
+      <div className="stat-note">{props.note}</div>
+    </div>
+  )
+}
+
+function Stats() {
+  const loadStats = useCallback(async () => unwrap(await api.GET('/api/stats')), [])
+  const loadModels = useCallback(
+    async () => unwrap(await api.GET('/api/models', { params: { query: { task: 'detect' } } })),
+    [],
+  )
+  const { data: stats } = useAsync(loadStats)
+  const { data: models } = useAsync(loadModels)
+  if (!stats) return <div className="stats skeleton-row" aria-hidden />
+
+  const bySource = stats.labels_by_source
+  const aiLabels = (bySource.ai ?? 0) + (bySource.ai_edited ?? 0) + (bySource.ai_confirmed ?? 0)
+  const aiShare = stats.labels_total ? (100 * aiLabels) / stats.labels_total : 0
+  const detector = models?.find((m) => m.is_active)
+  const map = detector?.metrics.map50_95 as number | undefined
 
   return (
-    <main className="page">
-      <h1>Projects</h1>
-      <p className="muted">
-        Upload images, label them with boxes or polygons — with AI suggestions — and export a COCO
-        or YOLO dataset.
-      </p>
+    <div className="stats">
+      <StatCard
+        icon={<Images size={15} />}
+        label="Images labelled"
+        value={<CountUp value={stats.images_done} />}
+        note={`of ${stats.images_total.toLocaleString('en-US')} in ${stats.projects} projects`}
+      />
+      <StatCard
+        icon={<Tags size={15} />}
+        label="Labels"
+        value={<CountUp value={stats.labels_total} />}
+        note={`${bySource.manual ?? 0} drawn by hand`}
+      />
+      <StatCard
+        icon={<Bot size={15} />}
+        label="Proposed by the AI"
+        value={<CountUp value={aiShare} suffix=" %" />}
+        note={`${bySource.ai_edited ?? 0} corrected by a human`}
+      />
+      <StatCard
+        icon={<Cpu size={15} />}
+        label="Active detector"
+        value={map != null ? <CountUp value={map} decimals={3} /> : '–'}
+        note={detector ? `${detector.name} · test mAP50-95` : 'no detector loaded'}
+      />
+    </div>
+  )
+}
 
-      {error && <p className="error">Could not load projects: {error}</p>}
-      {loading && <p className="muted">Loading…</p>}
-      {projects && projects.length === 0 && <p>No projects yet — create the first one below.</p>}
-
-      <div className="project-list">
-        {projects?.map((p) => (
-          <Link key={p.id} to={`/projects/${p.id}`} className="card project-card">
-            <h2>{p.name}</h2>
-            <p className="chips">
-              {p.classes.map((c) => (
-                <span key={c} className="chip">
-                  {c}
-                </span>
-              ))}
-            </p>
-            <ProgressBar project={p} />
-          </Link>
+function ProjectCard({ project }: { project: Project }) {
+  const done = project.status_counts?.done ?? 0
+  const total = project.image_count
+  const previews = project.preview_image_ids ?? []
+  return (
+    <Link to={`/projects/${project.id}`} className="project-card">
+      <div className={`mosaic n${previews.length}`}>
+        {previews.map((id) => (
+          <img key={id} src={imageFileUrl(id)} alt="" loading="lazy" />
         ))}
+        {previews.length === 0 && <span className="mosaic-empty">No images yet</span>}
+      </div>
+      <div className="project-card-body">
+        <div className="project-card-title">
+          <b>{project.name}</b>
+          {project.annotation_mode && (
+            <span className={`mode-pill ${project.annotation_mode}`}>
+              <Lock size={11} /> {project.annotation_mode === 'manual' ? 'Manual' : 'Assisted'}
+            </span>
+          )}
+        </div>
+        <p className="chips">
+          {project.classes.map((c) => (
+            <span key={c} className="chip">
+              <i style={{ background: classColor(project.classes, c) }} />
+              {c}
+            </span>
+          ))}
+        </p>
+        <div className="project-card-meta">
+          <span>
+            {done} / {total} images done
+          </span>
+          <ProgressRing value={total ? done / total : 0} />
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+export default function ProjectsPage() {
+  const load = useCallback(async () => unwrap(await api.GET('/api/projects')), [])
+  const { data: projects, error } = useAsync(load)
+  const [params, setParams] = useSearchParams()
+  const creating = params.get('new') === '1'
+  const setCreating = (open: boolean) => setParams(open ? { new: '1' } : {})
+
+  return (
+    <main className="page wide">
+      <div className="page-title">
+        <div>
+          <h1>Projects</h1>
+          <p className="muted">
+            Label images with a fine-tuned detector doing most of the work. Review, correct, export.
+          </p>
+        </div>
+        <button type="button" className="primary" onClick={() => setCreating(true)}>
+          <Plus size={16} /> New project
+        </button>
       </div>
 
-      <CreateProjectForm />
+      <Stats />
+
+      <h2 className="section-title">Your projects</h2>
+      {error && <p className="error">Could not load projects: {error}</p>}
+      <div className="project-grid">
+        {!projects &&
+          !error &&
+          [0, 1, 2].map((i) => <div key={i} className="project-card skeleton" aria-hidden />)}
+        {projects?.map((p) => (
+          <ProjectCard key={p.id} project={p} />
+        ))}
+        {projects && (
+          <button type="button" className="project-card new-card" onClick={() => setCreating(true)}>
+            <span className="new-card-plus">
+              <Plus size={22} />
+            </span>
+            <b>New project</b>
+            <span className="muted small">Define classes, then drop images</span>
+          </button>
+        )}
+      </div>
+
+      {creating && (
+        <Modal title="New project" onClose={() => setCreating(false)}>
+          <CreateProjectForm />
+        </Modal>
+      )}
     </main>
   )
 }

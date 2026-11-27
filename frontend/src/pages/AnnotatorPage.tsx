@@ -6,7 +6,24 @@
  *   └─ ImageLoader  this image's file, status and saved annotations   (remounted per image)
  *      └─ Editor    the editable shapes, undo history, saving, keyboard shortcuts
  */
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Crosshair,
+  Keyboard,
+  type LucideIcon,
+  Maximize,
+  MousePointer2,
+  Pentagon,
+  RotateCcw,
+  Sparkles,
+  Square,
+  Trash2,
+  Undo2,
+  WandSparkles,
+} from 'lucide-react'
+import { type CSSProperties, useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import {
@@ -36,18 +53,37 @@ import {
   type View,
 } from '../annotator/shapes'
 import { useAiStatus } from '../annotator/useAiStatus'
+import Modal from '../components/Modal'
 import ModeSwitch from '../components/ModeSwitch'
 import { useAsync, useHtmlImage, usePersistentState } from '../hooks'
 
 const AUTOSAVE_DELAY_MS = 800
 const MAX_UNDO = 100
 
-const TOOLS: { tool: Tool; key: string; label: string; assistedOnly?: boolean }[] = [
-  { tool: 'select', key: 'V', label: 'Select' },
-  { tool: 'box', key: 'B', label: 'Box' },
-  { tool: 'polygon', key: 'P', label: 'Polygon' },
-  { tool: 'smart', key: 'C', label: '🎯 Smart click', assistedOnly: true },
-  { tool: 'magic', key: 'M', label: '🪄 Magic', assistedOnly: true },
+const TOOLS: {
+  tool: Tool
+  key: string
+  label: string
+  icon: LucideIcon
+  assistedOnly?: boolean
+}[] = [
+  { tool: 'select', key: 'V', label: 'Select and edit', icon: MousePointer2 },
+  { tool: 'box', key: 'B', label: 'Draw a box', icon: Square },
+  { tool: 'polygon', key: 'P', label: 'Draw a polygon', icon: Pentagon },
+  {
+    tool: 'smart',
+    key: 'C',
+    label: 'Smart click: click an object, get its box and class',
+    icon: Crosshair,
+    assistedOnly: true,
+  },
+  {
+    tool: 'magic',
+    key: 'M',
+    label: 'Magic: click an object, get its outline (SAM)',
+    icon: WandSparkles,
+    assistedOnly: true,
+  },
 ]
 
 const SHORTCUTS: [string, string][] = [
@@ -60,6 +96,7 @@ const SHORTCUTS: [string, string][] = [
   ['Wheel · Space + drag', 'zoom · pan (F = fit)'],
   ['A / D', 'previous / next image'],
   ['Enter', 'mark done and go to next image'],
+  ['?', 'show these shortcuts'],
 ]
 
 const AI_SHORTCUTS: [string, string][] = [
@@ -118,6 +155,7 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
   const [view, setView] = useState<View | null>(null)
   const [panning, setPanning] = useState(false)
   const [status, setStatus] = useState<ImageStatus>(image.status)
+  const [showShortcuts, setShowShortcuts] = useState(false)
 
   // AI assistance
   const assisted = p.mode === 'assisted'
@@ -537,6 +575,8 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         return
       case 'f':
         return setView(null)
+      case '?':
+        return setShowShortcuts((open) => !open)
       case 'delete':
       case 'backspace':
         if (selectedId) remove(selectedId)
@@ -579,6 +619,14 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
 
   // ---------- layout ----------
 
+  // AI results float over the canvas for a few seconds; instructions stay until used.
+  const hideAiMessage = useEffectEvent(() => setAiMessage(undefined))
+  useEffect(() => {
+    if (!aiMessage || aiMessage.startsWith('Outline ready')) return
+    const timer = setTimeout(hideAiMessage, 4500)
+    return () => clearTimeout(timer)
+  }, [aiMessage])
+
   const dirty = version !== savedVersion
   const saveLabel = saveError
     ? `⚠ Not saved: ${saveError}`
@@ -588,199 +636,312 @@ function Editor({ project, image, htmlImage, initialShapes, position, ...p }: Ed
         ? 'Unsaved changes'
         : 'All changes saved'
 
+  const confidenceClass = (score: number) => (score >= 0.7 ? 'high' : score >= 0.5 ? 'mid' : 'low')
+  const aiError = aiMessage?.startsWith('⚠')
+
   return (
     <div className="annotator">
-      <div className="toolbar">
-        <button type="button" onClick={() => void goTo(`/projects/${project.id}`)}>
-          ← {project.name}
+      <nav className="tool-rail" aria-label="Tools">
+        {TOOLS.filter((t) => assisted || !t.assistedOnly).map(
+          ({ tool, key, label, icon: Icon }) => (
+            <button
+              key={tool}
+              type="button"
+              className={`rail-button ${p.tool === tool ? 'active' : ''}`}
+              onClick={() => chooseTool(tool)}
+              data-tip={`${label} (${key})`}
+              aria-label={label}
+            >
+              <Icon size={19} />
+              <small>{key}</small>
+            </button>
+          ),
+        )}
+        <span className="rail-separator" />
+        <button
+          type="button"
+          className="rail-button"
+          onClick={undo}
+          disabled={history.length === 0}
+          data-tip="Undo (Ctrl+Z)"
+          aria-label="Undo"
+        >
+          <Undo2 size={19} />
         </button>
-        <span className="filename" title={image.filename}>
-          {image.filename}{' '}
-          <span className="muted">
-            ({position.index + 1} / {position.total})
+        <button
+          type="button"
+          className="rail-button"
+          onClick={() => setView(null)}
+          data-tip="Fit image (F)"
+          aria-label="Fit image"
+        >
+          <Maximize size={19} />
+        </button>
+        <button
+          type="button"
+          className="rail-button rail-bottom"
+          onClick={() => setShowShortcuts(true)}
+          data-tip="Keyboard shortcuts (?)"
+          aria-label="Keyboard shortcuts"
+        >
+          <Keyboard size={19} />
+          <small>?</small>
+        </button>
+      </nav>
+
+      <div className="annotator-main">
+        <div className="toolbar">
+          <button
+            type="button"
+            className="ghost crumb"
+            onClick={() => void goTo(`/projects/${project.id}`)}
+            title="Back to the project"
+          >
+            <ChevronLeft size={16} />
+            {project.name}
+          </button>
+          <span className="filename" title={image.filename}>
+            {image.filename}
           </span>
-        </span>
-        <button type="button" disabled={!position.prevId} onClick={goPrev} title="Previous (A)">
-          ‹
-        </button>
-        <button type="button" disabled={!position.nextId} onClick={goNext} title="Next (D)">
-          ›
-        </button>
-
-        <span className="separator" />
-        <ModeSwitch mode={p.mode} locked={p.modeLocked} onChange={chooseMode} />
-
-        <span className="separator" />
-        {TOOLS.filter((t) => assisted || !t.assistedOnly).map(({ tool, key, label }) => (
-          <button
-            key={tool}
-            type="button"
-            className={p.tool === tool ? 'active' : ''}
-            onClick={() => chooseTool(tool)}
-            title={`${label} (${key})`}
-          >
-            {label} <kbd>{key}</kbd>
-          </button>
-        ))}
-
-        <span className="separator" />
-        {classes.map((c, i) => (
-          <button
-            key={c}
-            type="button"
-            className={`class-button ${p.activeClass === c ? 'active' : ''}`}
-            style={{ borderColor: classColor(classes, c) }}
-            onClick={() => chooseClass(c)}
-            title={i < 9 ? `Class ${c} (${i + 1})` : c}
-          >
-            <span className="dot" style={{ background: classColor(classes, c) }} />
-            {c} {i < 9 && <kbd>{i + 1}</kbd>}
-          </button>
-        ))}
-
-        {assisted && (
-          <>
-            <span className="separator" />
+          <div className="pager">
             <button
               type="button"
-              className="ai-button"
-              onClick={() => void suggest()}
-              disabled={!detectorReady || aiBusy}
-              title={
-                detectorReady ? 'Suggest boxes with the detector (S)' : modelHint(p.ai, 'detector')
-              }
+              className="icon"
+              disabled={!position.prevId}
+              onClick={goPrev}
+              title="Previous (A)"
             >
-              ✨ Suggest <kbd>S</kbd>
+              <ChevronLeft size={16} />
             </button>
-            <label
-              className="confidence"
-              title="Only suggestions the model is at least this sure about"
+            <span>
+              {position.index + 1} / {position.total}
+            </span>
+            <button
+              type="button"
+              className="icon"
+              disabled={!position.nextId}
+              onClick={goNext}
+              title="Next (D)"
             >
-              min. confidence
-              <input
-                type="range"
-                min={0.05}
-                max={0.95}
-                step={0.05}
-                value={p.confidence}
-                onChange={(e) => p.setConfidence(Number(e.target.value))}
-              />
-              <output>{p.confidence.toFixed(2)}</output>
-            </label>
-          </>
-        )}
+              <ChevronRight size={16} />
+            </button>
+          </div>
 
-        <span className="separator" />
-        <button type="button" onClick={undo} disabled={history.length === 0} title="Undo (Ctrl+Z)">
-          Undo
-        </button>
-        <button type="button" onClick={() => setView(null)} title="Fit image (F)">
-          Fit
-        </button>
+          <span className="separator" />
+          <ModeSwitch mode={p.mode} locked={p.modeLocked} onChange={chooseMode} />
 
-        <span className="spacer" />
-        {assisted && aiMessage && (
-          <span className={`ai-message ${aiMessage.startsWith('⚠') ? 'error' : ''}`}>
-            {aiMessage}
-          </span>
-        )}
-        <span className={`save-state ${saveError ? 'error' : ''}`}>{saveLabel}</span>
-        <span className={`badge ${status}`}>{status.replace('_', ' ')}</span>
-        {status === 'done' ? (
-          <button type="button" onClick={() => void setImageStatus('in_progress')}>
-            Reopen
-          </button>
-        ) : (
-          <button type="button" className="primary" onClick={() => void markDoneAndNext()}>
-            Done ✓ <kbd>Enter</kbd>
-          </button>
-        )}
-      </div>
-
-      <div className="workspace">
-        <AnnotationCanvas
-          image={htmlImage}
-          shapes={shapes}
-          classes={classes}
-          tool={p.tool}
-          activeClass={p.activeClass}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          panning={panning}
-          view={view}
-          draft={draft}
-          onViewChange={setView}
-          onDraftChange={setDraft}
-          onSelect={setSelectedId}
-          onHover={setHoveredId}
-          onCreate={create}
-          onEditStart={startEdit}
-          onEdit={edit}
-          magicPoints={magicPoints}
-          magicPreview={magicPreview?.points ?? null}
-          onMagicClick={(point, label) => void magicClick(point, label)}
-          onSmartClick={(point) => void smartClick(point)}
-        />
-
-        <aside className="sidebar">
-          <h3>Annotations ({shapes.length})</h3>
-          {shapes.length === 0 && (
-            <p className="muted small">Draw a box (B) or a polygon (P) on the image.</p>
-          )}
-          <ul className="annotation-list">
-            {shapes.map((s) => (
-              <li
-                key={s.id}
-                className={`${s.id === selectedId ? 'selected' : ''} ${s.id === hoveredId ? 'hovered' : ''}`}
-                onMouseEnter={() => setHoveredId(s.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                onClick={() => {
-                  chooseTool('select')
-                  setSelectedId(s.id)
-                }}
+          {assisted && (
+            <>
+              <button
+                type="button"
+                className="primary suggest"
+                onClick={() => void suggest()}
+                disabled={!detectorReady || aiBusy}
+                title={
+                  detectorReady
+                    ? 'Suggest boxes with the detector (S)'
+                    : modelHint(p.ai, 'detector')
+                }
               >
-                <span className="dot" style={{ background: classColor(classes, s.className) }} />
-                <select
-                  value={s.className}
-                  onClick={(e) => e.stopPropagation()}
-                  onChange={(e) => changeClass(s.id, e.target.value)}
-                  aria-label="Class"
-                >
-                  {classes.map((c) => (
-                    <option key={c}>{c}</option>
-                  ))}
-                </select>
-                <span className="muted small">
-                  {s.kind}
-                  {s.source !== 'manual' && ` · ${s.source.replace('_', ' ')}`}
-                  {s.source === 'ai' && s.score != null && ` ${s.score.toFixed(2)}`}
+                <Sparkles size={15} className={aiBusy ? 'spin' : ''} />
+                Suggest <kbd>S</kbd>
+              </button>
+              <label
+                className="confidence"
+                title="Only suggestions the model is at least this sure about"
+              >
+                min. confidence
+                <input
+                  type="range"
+                  min={0.05}
+                  max={0.95}
+                  step={0.05}
+                  value={p.confidence}
+                  onChange={(e) => p.setConfidence(Number(e.target.value))}
+                />
+                <output>{p.confidence.toFixed(2)}</output>
+              </label>
+            </>
+          )}
+
+          <span className="separator" />
+          <div className="class-picker" role="group" aria-label="Class for new shapes">
+            {classes.map((c, i) => (
+              <button
+                key={c}
+                type="button"
+                className={p.activeClass === c ? 'active' : ''}
+                style={{ '--class-color': classColor(classes, c) } as CSSProperties}
+                onClick={() => chooseClass(c)}
+                title={i < 9 ? `Class ${c} (${i + 1})` : c}
+              >
+                <span className="dot" />
+                {c}
+                {i < 9 && <kbd>{i + 1}</kbd>}
+              </button>
+            ))}
+          </div>
+
+          <span className="spacer" />
+          <span
+            className={`save-state ${saveError ? 'error' : dirty || saving ? 'pending' : 'ok'}`}
+          >
+            {!saveError && !dirty && !saving && <Check size={14} />}
+            {saveLabel}
+          </span>
+        </div>
+
+        <div className="workspace">
+          <div className="canvas-area">
+            <AnnotationCanvas
+              image={htmlImage}
+              shapes={shapes}
+              classes={classes}
+              tool={p.tool}
+              activeClass={p.activeClass}
+              selectedId={selectedId}
+              hoveredId={hoveredId}
+              panning={panning}
+              view={view}
+              draft={draft}
+              onViewChange={setView}
+              onDraftChange={setDraft}
+              onSelect={setSelectedId}
+              onHover={setHoveredId}
+              onCreate={create}
+              onEditStart={startEdit}
+              onEdit={edit}
+              magicPoints={magicPoints}
+              magicPreview={magicPreview?.points ?? null}
+              onMagicClick={(point, label) => void magicClick(point, label)}
+              onSmartClick={(point) => void smartClick(point)}
+            />
+            <div className="canvas-hint">Wheel: zoom · Space + drag: pan · F: fit</div>
+            {assisted && aiMessage && (
+              <div className={`ai-toast ${aiError ? 'error' : ''}`} role="status">
+                <span className="ai-toast-icon">
+                  <Sparkles size={15} />
                 </span>
-                <button
-                  type="button"
-                  className="icon"
-                  title="Delete"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    remove(s.id)
+                {aiMessage.replace(/^⚠ /, '')}
+              </div>
+            )}
+          </div>
+
+          <aside className="sidebar">
+            <div className="sidebar-head">
+              <div className="sidebar-title">
+                <h3>Labels · {shapes.length}</h3>
+                <span className={`badge ${status}`}>{status.replace('_', ' ')}</span>
+              </div>
+              <div className="progress thin" title="Position in the project">
+                <div
+                  className="progress-done"
+                  style={{ width: `${(100 * (position.index + 1)) / position.total}%` }}
+                />
+              </div>
+            </div>
+
+            {shapes.length === 0 && (
+              <p className="muted small empty-hint">
+                No labels yet. Draw a box (B)
+                {assisted ? ', press S for AI suggestions or C for smart click' : ''}.
+              </p>
+            )}
+            <ul className="annotation-list">
+              {shapes.map((s) => (
+                <li
+                  key={s.id}
+                  className={`${s.id === selectedId ? 'selected' : ''} ${s.id === hoveredId ? 'hovered' : ''}`}
+                  onMouseEnter={() => setHoveredId(s.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  onClick={() => {
+                    chooseTool('select')
+                    setSelectedId(s.id)
                   }}
                 >
-                  ×
-                </button>
-              </li>
-            ))}
-          </ul>
+                  <span
+                    className="swatch"
+                    style={{ background: classColor(classes, s.className) }}
+                  />
+                  <select
+                    value={s.className}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => changeClass(s.id, e.target.value)}
+                    aria-label="Class"
+                  >
+                    {classes.map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                  <span className="source-tag">
+                    {s.kind === 'polygon' ? 'poly' : 'box'}
+                    {s.source === 'manual' ? '' : s.source === 'ai' ? ' · AI' : ' · AI ✎'}
+                  </span>
+                  {s.score != null && s.source !== 'manual' ? (
+                    <span
+                      className={`confidence-bar ${confidenceClass(s.score)}`}
+                      title={`confidence ${s.score.toFixed(2)}`}
+                    >
+                      <span className="track">
+                        <i style={{ width: `${Math.round(s.score * 100)}%` }} />
+                      </span>
+                      <small>{s.score.toFixed(2)}</small>
+                    </span>
+                  ) : (
+                    <span className="confidence-bar empty" />
+                  )}
+                  <button
+                    type="button"
+                    className="icon"
+                    title="Delete (Del)"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      remove(s.id)
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </li>
+              ))}
+            </ul>
 
-          <h3>Shortcuts</h3>
+            <div className="sidebar-foot">
+              {status === 'done' ? (
+                <button
+                  type="button"
+                  className="wide-button"
+                  onClick={() => void setImageStatus('in_progress')}
+                >
+                  <RotateCcw size={16} /> Reopen
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="primary wide-button"
+                  onClick={() => void markDoneAndNext()}
+                >
+                  <Check size={16} /> Done <kbd>Enter</kbd>
+                </button>
+              )}
+            </div>
+          </aside>
+        </div>
+      </div>
+
+      {showShortcuts && (
+        <Modal title="Keyboard shortcuts" onClose={() => setShowShortcuts(false)} wide>
           <dl className="shortcuts">
             {[...SHORTCUTS, ...(assisted ? AI_SHORTCUTS : [])].map(([keys, action]) => (
               <div key={keys + action}>
-                <dt>{keys}</dt>
+                <dt>
+                  <kbd>{keys}</kbd>
+                </dt>
                 <dd>{action}</dd>
               </div>
             ))}
           </dl>
-        </aside>
-      </div>
+        </Modal>
+      )}
     </div>
   )
 }

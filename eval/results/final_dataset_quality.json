@@ -1,0 +1,27 @@
+{
+  "images": 100,
+  "labels": 498,
+  "labels_by_source": {
+    "ai": 483,
+    "manual": 8,
+    "ai_edited": 7
+  },
+  "vs_original_labels_iou_50": {
+    "ai_only_conf_025": {
+      "tp": 418,
+      "fp": 62,
+      "fn": 61,
+      "precision": 0.8708,
+      "recall": 0.8727,
+      "f1": 0.8717
+    },
+    "final_reviewed": {
+      "tp": 430,
+      "fp": 68,
+      "fn": 49,
+      "precision": 0.8635,
+      "recall": 0.8977,
+      "f1": 0.8802
+    }
+  }
+}
