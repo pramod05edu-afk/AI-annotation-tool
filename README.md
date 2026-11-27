@@ -1,13 +1,17 @@
 # AI-Assisted Image Annotation Platform
 
-A web application for labelling images for object detection, where computer-vision models do
-most of the work: a **fine-tuned YOLO11 detector** pre-labels every image, a **smart click**
-turns one click into a correctly classed box, and **MobileSAM** outlines objects as polygons.
-The annotator reviews and corrects, then exports a standard **COCO** or **YOLO** dataset.
+A general-purpose web application for labelling images for object detection: **any image
+domain, your own labels per project**, and computer-vision models doing most of the work.
+A **general open-vocabulary detector (YOLOE)** reads the project's label names and pre-labels
+the image, **find similar** adds more objects like one example box (for labels no model knows by
+name), a **smart click** turns one click into a correctly labelled box, and **MobileSAM**
+outlines objects as polygons. Where a **fine-tuned specialist** exists for a project's labels, it
+takes over those labels. The annotator reviews and corrects, then exports a standard **COCO** or
+**YOLO** dataset.
 
-Use case: labelling **construction-site helmet compliance**: every `helmet` (head wearing a hard
-hat) and every `head` without one. Built as the individual project of the *AI Vision* module,
-SRH Hochschule Heidelberg.
+Case study used for fine-tuning and evaluation: **construction-site helmet compliance**, every
+`helmet` (head wearing a hard hat) and every `head` without one. Built as the individual project
+of the *AI Vision* module, SRH Hochschule Heidelberg.
 
 ![Annotator in assisted mode: the fine-tuned detector's proposals with class and confidence](docs/images/annotator.jpg)
 
@@ -20,6 +24,8 @@ SRH Hochschule Heidelberg.
 | Smart click vs. SAM click (300 test objects, box IoU) | **0.77** vs. 0.47 mean IoU · 92 % vs. 46 % usable (IoU ≥ 0.5) |
 | Effort study (60 test images, manual vs. assisted) | **−80 % time per image** (29.7 s → 5.8 s, Mann-Whitney p < 0.0001, r = 0.88) |
 | Label quality vs. ground truth (F1, IoU ≥ 0.5) | manual 0.70 · assisted 0.93 · caveat: automation bias, see below |
+| General model YOLOE, zero-shot on 80 classes it was never trained on (coco128) | **mAP50 0.52** · precision 0.65, recall 0.48 at the app default · 250 ms (YOLO-World v2: 0.55) |
+| Helmet test split: fine-tuned specialist vs. general model (text prompts) | mAP50 **0.94 vs. 0.16**: where labelled data exist, fine-tuning is worth it |
 
 Details: [eval/results/](eval/results/) (all numbers are reproducible, see *Evaluation*).
 
@@ -53,7 +59,8 @@ locally installed PostgreSQL.
 **Models are downloaded automatically** into `weights/` (git-ignored) on the first start:
 the fine-tuned detector from this repository's
 [GitHub Release `model-v1`](https://github.com/pramod05edu-afk/AI-annotation-tool/releases/tag/model-v1)
-(SHA-256 verified), MobileSAM from the Ultralytics releases.
+(SHA-256 verified), MobileSAM, YOLOE and its MobileCLIP2 text encoder from the Ultralytics
+releases (~330 MB in total, first start only).
 
 ## Features
 
@@ -63,7 +70,8 @@ the fine-tuned detector from this repository's
 - Command palette (`Ctrl+K`) to jump to any project; backend and AI status in the header.
 
 **Projects and images**
-- Projects with their own label classes; drag-and-drop upload (PNG / JPEG / WEBP, validated by
+- Projects with **their own labels** (any names, any number) for **any kind of image**;
+  drag-and-drop upload (PNG / JPEG / WEBP, validated by
   content), thumbnail grid with status (*to do / in progress / done*) and progress bar.
 
 **Annotator**
@@ -73,11 +81,18 @@ the fine-tuned detector from this repository's
   Autosave after every change.
 - Label panel with colour-coded confidence bars, so uncertain AI proposals stand out.
 
-**AI assistance** (*Assisted* mode)
-- ✨ **Suggest** (`S`, automatic on new images): the fine-tuned detector pre-labels the image;
-  confidence slider; AI boxes are dashed and keep their score.
-- 🎯 **Smart click** (`C`): click an object → the detector's best box under the click, with its
-  class, including weak candidates the automatic suggestions hid; already labelled objects are
+**AI assistance** (*Assisted* mode), for any labels
+- **Two detectors, chosen per label:** the **general model (YOLOE)** finds whatever the project's
+  label names describe, without training; for labels a **fine-tuned specialist** was trained on
+  (here `helmet`, `head`), the specialist answers instead, because it is far more accurate on its
+  own data. Projects can mix both; every box records which model produced it.
+- ✨ **Suggest** (`S`, automatic on new images): pre-labels the image; confidence slider; AI
+  boxes are dashed and keep their score and model.
+- 🔎 **Find similar** (`E`): select one box as an example → the general model adds more objects
+  that look like it (visual prompt). For labels without a name a model would know (a product,
+  a defect, a cell type).
+- 🎯 **Smart click** (`C`): click an object → the best box under the click, with its label,
+  including weak candidates the automatic suggestions hid; already labelled objects are
   skipped. Detections are cached per image (repeat clicks ≈ 1 ms).
 - 🪄 **Magic click** (`M`): MobileSAM outlines an object as a polygon (click = object,
   Shift / right click = not object); the image is encoded in the background when it opens.
@@ -102,7 +117,9 @@ frontend: nginx ──/api──► backend: FastAPI (Python 3.11)
                             │                               model registry, interaction log
                             ├──► SeaweedFS (S3 API)         image files
                             └──► models, loaded once in the background, run on CPU
-                                   ├─ YOLO11n fine-tuned  → OpenVINO  (suggest, smart click)
+                                   ├─ YOLOE-26s + MobileCLIP2 text encoder   (any labels:
+                                   │                       suggest, smart click, find similar)
+                                   ├─ YOLO11n fine-tuned → OpenVINO   (its own labels)
                                    └─ MobileSAM                       (magic click)
 ```
 
@@ -111,6 +128,8 @@ Key design decisions (justified in the project report; see also the
 
 | Choice | Why |
 |---|---|
+| YOLOE as the general model (vs. YOLO-World, Grounding DINO, OWLv2, SAM 3, a cloud VLM) | open vocabulary **and** example-box prompts, interactive on a CPU, offline, same library as the specialist; YOLO-World was equally accurate but has no visual prompts; the transformer models need a GPU |
+| Keep a fine-tuned specialist, chosen per label | on its own data the specialist is far more accurate than any zero-shot model (see *Results*): general model for new labels, specialist where one exists |
 | Fine-tune YOLO11n (Colab T4) instead of training from scratch | 3,800 images are too few for scratch training; YOLO11s was not more accurate on the test set (0.629 vs. 0.632 mAP50-95) but 3.6× larger |
 | OpenVINO export | Intel CPU inference without a GPU; same accuracy (0.943 vs. 0.945 mAP50) |
 | Smart click in addition to SAM | in this dataset a *helmet* box covers the whole head; SAM outlines only the visible hard hat (IoU 0.47); the detector knows the label definition (IoU 0.77) |
@@ -127,6 +146,7 @@ All scripts are in [backend/scripts/](backend/scripts/); results and figures in
 |---|---|---|
 | Detector: mAP on CPU, precision/recall at the app threshold, recall by object size, failure cases, CPU speed | `evaluate_detector.py` | `detector_eval.json`, `failures/` |
 | Click tools: SAM 1 click, SAM 2 clicks, smart click | `evaluate_click_tools.py` | `click_tools_eval.json` |
+| General model: zero-shot on 80 new classes (coco128), specialist vs. general on the helmet test split, find similar, YOLO-World baseline | `evaluate_open_vocab.py` | `open_vocab_eval.json` |
 | Effort study: time, interactions, label quality, statistics | `analyze_effort.py` | `effort_study.{json,md}`, `figures/effort_boxplots.png` |
 | Training curves, confusion matrix, PR / F1 curves (Colab) | `eval/colab_finetune.ipynb` | `figures/`, `detector_metrics.json` |
 
@@ -152,6 +172,13 @@ assisted, labelled in alternating blocks of 10; Mann-Whitney U test with rank-bi
 - **Automation bias:** 190 of 192 assisted labels were accepted unchanged; the AI's errors passed
   through. Assisted quality is therefore bounded by the model; a review step that highlights
   low-confidence boxes is the main improvement.
+- **Generalisation:** the general model finds about half of the objects of 80 unseen everyday
+  classes with no training, which is real help for a new project. On the helmet data it fails
+  (mAP50 0.16): the dataset's *helmet* box covers the whole head, while the model reads
+  "helmet" as the hard hat only. **Find similar** with one example box does not fix this
+  (precision 0.62 but recall 0.12 at 0.25): precise but finds few objects. Specialised domains
+  therefore still need fine-tuning, which the per-label specialist supports.
+- The general model's latency varies strongly with laptop load (p95 1.2 s vs. 250 ms median).
 - One annotator (the developer); fast pace; quality measured against public labels that contain
   some missed heads. Small, distant heads are the detector's weakest case (recall 0.88 vs. 0.97).
 
@@ -185,7 +212,7 @@ evaluation and OpenVINO export. Guide: [docs/training.md](docs/training.md).
 docker compose up -d postgres storage   # API tests use a real PostgreSQL (host port 5433)
 cd backend
 uv sync
-uv run pytest                            # 114 tests; creates and migrates annotator_test
+uv run pytest                            # 131 tests; creates and migrates annotator_test
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
 uv run alembic revision --autogenerate -m "describe change"   # after changing app/models.py
 
@@ -215,8 +242,9 @@ Interactive docs: http://localhost:3000/api/docs
 | `GET/PUT /api/images/{id}/annotations` | Load / replace all annotations of an image (boxes, polygons) |
 | `GET /api/projects/{id}/export?format=coco\|yolo&scope=all\|done` | Download the dataset as a zip with images |
 | `GET /api/ai/status` | Which AI models are loaded |
-| `POST /api/images/{id}/suggest` | Detector boxes, mapped to the project's classes |
-| `POST /api/images/{id}/click-box` | Smart click: the detector's best box under a clicked point |
+| `POST /api/images/{id}/suggest` | Boxes for the project's labels (specialist for its labels, general model for the rest) |
+| `POST /api/images/{id}/click-box` | Smart click: the best box under a clicked point |
+| `POST /api/images/{id}/find-similar` | General model: more objects like the example box(es), with the given label |
 | `POST /api/images/{id}/segment/prepare`, `POST /api/images/{id}/segment` | MobileSAM: encode ahead of time; clicks → polygon |
 | `GET/POST /api/models`, `POST /api/models/{id}/activate` | Model registry (one active model per task) |
 | `POST /api/logs` | Interaction events for the effort study |
@@ -227,6 +255,11 @@ Interactive docs: http://localhost:3000/api/docs
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (AGPL-3.0): detector training
   and inference. Fine for this open-source university project; commercial use would need an
   Ultralytics licence or an Apache-licensed detector.
+- [YOLOE](https://github.com/THU-MIG/yoloe) (Wang et al., 2025), YOLOE-26 weights via
+  Ultralytics (AGPL-3.0); text encoder MobileCLIP2 (Apple); CLIP tokenizer
+  ([ultralytics/CLIP](https://github.com/ultralytics/CLIP), MIT, from OpenAI CLIP).
+- Generalisation test images: [coco128](https://github.com/ultralytics/assets/releases/tag/v0.0.0),
+  the first 128 images of COCO train2017 (Lin et al., 2014; annotations CC BY 4.0).
 - [MobileSAM](https://github.com/ChaoningZhang/MobileSAM) (Apache-2.0) via Ultralytics;
   [Segment Anything](https://segment-anything.com/) (Kirillov et al., 2023).
 - [OpenVINO](https://github.com/openvinotoolkit/openvino) (Apache-2.0), FastAPI, React, Konva,

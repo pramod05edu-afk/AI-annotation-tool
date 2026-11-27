@@ -18,7 +18,7 @@ function HealthStatus() {
   const health = useAsync(loadHealth)
   const ai = useAsync(loadAi)
   const ok = health.data?.status === 'ok'
-  const aiReady = ai.data?.detector.state === 'ready'
+  const aiReady = ai.data?.detector.state === 'ready' || ai.data?.general.state === 'ready'
   const label = health.error
     ? 'Backend offline'
     : !health.data

@@ -1,0 +1,428 @@
+{
+  "settings": {
+    "app_conf": 0.25,
+    "low_conf_for_ap": 0.01,
+    "iou": 0.5,
+    "imgsz": 640
+  },
+  "models": {
+    "general": "yoloe-26s-seg",
+    "specialist": "yolo11n_helmet"
+  },
+  "coco128_yoloe": {
+    "images": 128,
+    "objects": 929,
+    "classes_with_ground_truth": 71,
+    "map50": 0.5184,
+    "ap50_per_class": {
+      "airplane": 0.8333,
+      "backpack": 0.2778,
+      "banana": 0.0,
+      "baseball bat": 0.1548,
+      "baseball glove": 0.4725,
+      "bear": 1.0,
+      "bed": 0.6667,
+      "bench": 0.6127,
+      "bicycle": 0.4167,
+      "bird": 0.2292,
+      "boat": 0.4808,
+      "book": 0.2327,
+      "bottle": 0.3226,
+      "bowl": 0.468,
+      "broccoli": 0.1667,
+      "bus": 0.7397,
+      "cake": 1.0,
+      "car": 0.3888,
+      "carrot": 0.4933,
+      "cat": 0.9,
+      "cell phone": 0.1667,
+      "chair": 0.4462,
+      "clock": 0.8889,
+      "couch": 0.375,
+      "cup": 0.3732,
+      "dining table": 0.5282,
+      "dog": 0.7056,
+      "donut": 0.7015,
+      "elephant": 0.4706,
+      "fork": 0.2083,
+      "frisbee": 0.8,
+      "giraffe": 0.9889,
+      "handbag": 0.4063,
+      "horse": 1.0,
+      "hot dog": 0.6667,
+      "kite": 0.325,
+      "knife": 0.3857,
+      "laptop": 0.0,
+      "microwave": 1.0,
+      "motorcycle": 0.9667,
+      "mouse": 0.0,
+      "orange": 0.7024,
+      "oven": 0.1103,
+      "person": 0.7798,
+      "pizza": 0.72,
+      "potted plant": 0.5487,
+      "refrigerator": 0.8242,
+      "remote": 0.475,
+      "sandwich": 0.0,
+      "scissors": 0.0,
+      "sink": 0.4444,
+      "skateboard": 0.4,
+      "skis": 1.0,
+      "snowboard": 0.5238,
+      "spoon": 0.2399,
+      "sports ball": 0.1667,
+      "stop sign": 0.5,
+      "suitcase": 0.375,
+      "teddy bear": 0.4491,
+      "tennis racket": 0.5714,
+      "tie": 0.7594,
+      "toilet": 0.5,
+      "toothbrush": 0.6115,
+      "traffic light": 0.2436,
+      "train": 1.0,
+      "truck": 0.1746,
+      "tv": 0.5,
+      "umbrella": 0.6287,
+      "vase": 0.8333,
+      "wine glass": 0.4622,
+      "zebra": 1.0
+    },
+    "weakest_classes": [
+      [
+        "banana",
+        0.0
+      ],
+      [
+        "sandwich",
+        0.0
+      ],
+      [
+        "scissors",
+        0.0
+      ],
+      [
+        "mouse",
+        0.0
+      ],
+      [
+        "laptop",
+        0.0
+      ]
+    ],
+    "strongest_classes": [
+      [
+        "bear",
+        1.0
+      ],
+      [
+        "skis",
+        1.0
+      ],
+      [
+        "cake",
+        1.0
+      ],
+      [
+        "microwave",
+        1.0
+      ],
+      [
+        "train",
+        1.0
+      ]
+    ],
+    "at_conf_0.25": {
+      "tp": 446,
+      "fp": 238,
+      "fn": 483,
+      "precision": 0.652,
+      "recall": 0.4801,
+      "f1": 0.553
+    },
+    "median_ms": 250.0,
+    "p95_ms": 1246.3
+  },
+  "helmet_specialist": {
+    "images": 600,
+    "objects": 3129,
+    "classes_with_ground_truth": 2,
+    "map50": 0.9383,
+    "ap50_per_class": {
+      "head": 0.932,
+      "helmet": 0.9447
+    },
+    "weakest_classes": [
+      [
+        "head",
+        0.932
+      ],
+      [
+        "helmet",
+        0.945
+      ]
+    ],
+    "strongest_classes": [
+      [
+        "helmet",
+        0.945
+      ],
+      [
+        "head",
+        0.932
+      ]
+    ],
+    "at_conf_0.25": {
+      "tp": 2873,
+      "fp": 325,
+      "fn": 256,
+      "precision": 0.8984,
+      "recall": 0.9182,
+      "f1": 0.9082
+    },
+    "median_ms": 73.9,
+    "p95_ms": 108.6
+  },
+  "helmet_yoloe_text": {
+    "images": 600,
+    "objects": 3129,
+    "classes_with_ground_truth": 2,
+    "map50": 0.1579,
+    "ap50_per_class": {
+      "head": 0.1664,
+      "helmet": 0.1493
+    },
+    "weakest_classes": [
+      [
+        "helmet",
+        0.149
+      ],
+      [
+        "head",
+        0.166
+      ]
+    ],
+    "strongest_classes": [
+      [
+        "head",
+        0.166
+      ],
+      [
+        "helmet",
+        0.149
+      ]
+    ],
+    "at_conf_0.25": {
+      "tp": 575,
+      "fp": 1093,
+      "fn": 2554,
+      "precision": 0.3447,
+      "recall": 0.1838,
+      "f1": 0.2397
+    },
+    "median_ms": 364.7,
+    "p95_ms": 1629.2
+  },
+  "helmet_yoloe_find_similar": {
+    "prompts": 563,
+    "per_class": {
+      "head": {
+        "tp": 40,
+        "fp": 19,
+        "fn": 693,
+        "precision": 0.678,
+        "recall": 0.0546,
+        "f1": 0.101
+      },
+      "helmet": {
+        "tp": 258,
+        "fp": 163,
+        "fn": 1473,
+        "precision": 0.6128,
+        "recall": 0.149,
+        "f1": 0.2398
+      }
+    },
+    "all": {
+      "tp": 298,
+      "fp": 182,
+      "fn": 2166,
+      "precision": 0.6208,
+      "recall": 0.1209,
+      "f1": 0.2024
+    },
+    "median_ms": 1363.6
+  },
+  "coco128_yolo_world": {
+    "images": 128,
+    "objects": 929,
+    "classes_with_ground_truth": 71,
+    "map50": 0.5548,
+    "ap50_per_class": {
+      "airplane": 0.9762,
+      "backpack": 0.3958,
+      "banana": 0.0,
+      "baseball bat": 0.9,
+      "baseball glove": 0.5238,
+      "bear": 1.0,
+      "bed": 1.0,
+      "bench": 0.4137,
+      "bicycle": 0.3492,
+      "bird": 0.775,
+      "boat": 0.3444,
+      "book": 0.1485,
+      "bottle": 0.5063,
+      "bowl": 0.4953,
+      "broccoli": 0.2457,
+      "bus": 0.6735,
+      "cake": 1.0,
+      "car": 0.2779,
+      "carrot": 0.4558,
+      "cat": 0.85,
+      "cell phone": 0.1406,
+      "chair": 0.4436,
+      "clock": 0.8519,
+      "couch": 0.8269,
+      "cup": 0.3816,
+      "dining table": 0.5731,
+      "dog": 0.7124,
+      "donut": 0.864,
+      "elephant": 0.4641,
+      "fork": 0.1667,
+      "frisbee": 0.7333,
+      "giraffe": 1.0,
+      "handbag": 0.3377,
+      "horse": 1.0,
+      "hot dog": 0.5,
+      "kite": 0.2944,
+      "knife": 0.474,
+      "laptop": 0.0,
+      "microwave": 1.0,
+      "motorcycle": 0.9429,
+      "mouse": 0.0,
+      "orange": 1.0,
+      "oven": 0.0305,
+      "person": 0.7566,
+      "pizza": 1.0,
+      "potted plant": 0.6073,
+      "refrigerator": 0.7415,
+      "remote": 0.4464,
+      "sandwich": 0.0,
+      "scissors": 0.0,
+      "sink": 0.4127,
+      "skateboard": 0.3117,
+      "skis": 1.0,
+      "snowboard": 0.6175,
+      "spoon": 0.2746,
+      "sports ball": 0.3333,
+      "stop sign": 0.5,
+      "suitcase": 0.375,
+      "teddy bear": 0.4358,
+      "tennis racket": 0.5272,
+      "tie": 0.7755,
+      "toilet": 0.5,
+      "toothbrush": 0.9429,
+      "traffic light": 0.2497,
+      "train": 1.0,
+      "truck": 0.3212,
+      "tv": 0.5,
+      "umbrella": 0.5353,
+      "vase": 0.75,
+      "wine glass": 0.4094,
+      "zebra": 1.0
+    },
+    "weakest_classes": [
+      [
+        "banana",
+        0.0
+      ],
+      [
+        "sandwich",
+        0.0
+      ],
+      [
+        "scissors",
+        0.0
+      ],
+      [
+        "mouse",
+        0.0
+      ],
+      [
+        "laptop",
+        0.0
+      ]
+    ],
+    "strongest_classes": [
+      [
+        "bear",
+        1.0
+      ],
+      [
+        "skis",
+        1.0
+      ],
+      [
+        "bed",
+        1.0
+      ],
+      [
+        "pizza",
+        1.0
+      ],
+      [
+        "cake",
+        1.0
+      ]
+    ],
+    "at_conf_0.25": {
+      "tp": 437,
+      "fp": 203,
+      "fn": 492,
+      "precision": 0.6828,
+      "recall": 0.4704,
+      "f1": 0.557
+    },
+    "median_ms": 397.3,
+    "p95_ms": 544.9
+  },
+  "helmet_yolo_world_text": {
+    "images": 600,
+    "objects": 3129,
+    "classes_with_ground_truth": 2,
+    "map50": 0.134,
+    "ap50_per_class": {
+      "head": 0.0103,
+      "helmet": 0.2578
+    },
+    "weakest_classes": [
+      [
+        "head",
+        0.01
+      ],
+      [
+        "helmet",
+        0.258
+      ]
+    ],
+    "strongest_classes": [
+      [
+        "helmet",
+        0.258
+      ],
+      [
+        "head",
+        0.01
+      ]
+    ],
+    "at_conf_0.25": {
+      "tp": 762,
+      "fp": 683,
+      "fn": 2367,
+      "precision": 0.5273,
+      "recall": 0.2435,
+      "f1": 0.3332
+    },
+    "median_ms": 500.6,
+    "p95_ms": 1299.5
+  }
+}

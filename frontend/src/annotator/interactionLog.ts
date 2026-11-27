@@ -23,6 +23,7 @@ export type LogEventName =
   | 'magic_click'
   | 'magic_accepted'
   | 'smart_click'
+  | 'find_similar'
   | 'mode_changed'
 
 interface LogEvent {

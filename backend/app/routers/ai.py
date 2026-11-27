@@ -1,4 +1,7 @@
-"""AI assistance: box suggestions from the detector, click-to-outline with the segmenter.
+"""AI assistance: box suggestions from the detectors, click-to-outline with the segmenter.
+
+Two detectors work together: the fine-tuned specialist for the labels it was trained on, and
+a general open-vocabulary model (YOLOE) for every other label, so any project gets help.
 
 The routes are plain `def` (not `async def`): FastAPI then runs them in a thread pool, so a
 slow model call (hundreds of ms on CPU) never blocks other requests.
@@ -8,7 +11,9 @@ import io
 import logging
 import threading
 import time
-from collections import OrderedDict
+from collections import Counter, OrderedDict
+from collections.abc import Callable
+from dataclasses import dataclass
 
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -18,13 +23,21 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.deps import get_image_or_404
 from app.ml.base import Detection
-from app.ml.manager import ModelManager, ModelSlot, get_models
-from app.ml.postprocess import clip_box, map_to_project_classes, pick_box_at_point
+from app.ml.manager import ModelManager, ModelSlot, ModelState, get_models
+from app.ml.postprocess import (
+    clip_box,
+    drop_overlapping,
+    map_to_project_classes,
+    pick_box_at_point,
+    split_classes,
+)
 from app.models import Image
 from app.schemas import (
     AiStatus,
     ClickBoxRequest,
     ClickBoxResult,
+    FindSimilarRequest,
+    FindSimilarResult,
     ModelSlotStatus,
     SegmentRequest,
     SegmentResult,
@@ -42,23 +55,33 @@ CLICK_MIN_CONF = 0.01
 _CLICK_CACHE_SIZE = 64  # images; one entry is a short list of boxes
 
 
+@dataclass(frozen=True)
+class _Found:
+    detection: Detection
+    model: str
+    model_version_id: int | None
+
+
+_CacheKey = tuple[int, tuple[str, ...], str | None, str | None]  # image, labels, models
+
+
 class _DetectionCache:
-    """Low-confidence detections per (image, model): the first click on an image runs the
-    detector, further clicks on the same image are answered from memory."""
+    """Low-confidence detections per (image, labels, models): the first click on an image runs
+    the detectors, further clicks on the same image are answered from memory."""
 
     def __init__(self, size: int) -> None:
-        self._items: OrderedDict[tuple[int, str], list[Detection]] = OrderedDict()
+        self._items: OrderedDict[_CacheKey, list[_Found]] = OrderedDict()
         self._size = size
         self._lock = threading.Lock()
 
-    def get(self, key: tuple[int, str]) -> list[Detection] | None:
+    def get(self, key: _CacheKey) -> list[_Found] | None:
         with self._lock:
             if key in self._items:
                 self._items.move_to_end(key)
                 return self._items[key]
             return None
 
-    def put(self, key: tuple[int, str], value: list[Detection]) -> None:
+    def put(self, key: _CacheKey, value: list[_Found]) -> None:
         with self._lock:
             self._items[key] = value
             self._items.move_to_end(key)
@@ -97,7 +120,56 @@ def ai_status(models: ModelManager = Depends(get_models)) -> AiStatus:
     """Which models are loaded; the UI enables the AI buttons from this."""
     return AiStatus(
         detector=_slot_status(models.detector),  # type: ignore[arg-type]
+        general=_slot_status(models.general),  # type: ignore[arg-type]
         segmenter=_slot_status(models.segmenter),  # type: ignore[arg-type]
+    )
+
+
+def _detect_for_project(
+    models: ModelManager,
+    classes: list[str],
+    load_image: Callable[[], PilImage.Image],
+    conf: float,
+) -> tuple[list[_Found], Counter[str], list[str]]:
+    """Detect a project's labels: the fine-tuned specialist for the labels it was trained on,
+    the general open-vocabulary model for all others.
+
+    Returns the detections (each with the model that found it), the specialist's classes the
+    project does not use (with counts), and the names of the models that ran.
+    """
+    specialist = models.detector.model if models.detector.state == ModelState.READY else None
+    if specialist is not None:
+        for_specialist, for_general = split_classes(classes, specialist.classes)
+    else:  # specialist missing or still loading: the general model covers every label
+        for_specialist, for_general = [], list(classes)
+    # Fail fast (503) before the slow part if the general model is needed but not ready.
+    general = models.general.require() if for_general else None
+
+    image = load_image()
+    found: list[_Found] = []
+    ignored: Counter[str] = Counter()
+    used: list[str] = []
+    if specialist is not None and for_specialist:
+        kept, ignored = map_to_project_classes(specialist.detect(image, conf), for_specialist)
+        found += [_Found(d, specialist.name, models.detector.model_version_id) for d in kept]
+        used.append(specialist.name)
+    if general is not None:
+        detections = general.detect_classes(image, for_general, conf)
+        found += [_Found(d, general.name, models.general.model_version_id) for d in detections]
+        used.append(general.name)
+    return found, ignored, used
+
+
+def _suggestion(found: _Found, image: Image, class_name: str | None = None) -> Suggestion | None:
+    box = clip_box(found.detection.bbox, image.width, image.height)
+    if box is None:
+        return None
+    return Suggestion(
+        class_name=class_name or found.detection.class_name,
+        bbox=box,
+        score=found.detection.score,
+        model=found.model,
+        model_version_id=found.model_version_id,
     )
 
 
@@ -109,27 +181,22 @@ def suggest_boxes(
     storage: Storage = Depends(get_storage),
     models: ModelManager = Depends(get_models),
 ) -> SuggestResult:
-    """Pre-label an image: the detector's boxes, renamed to the project's class names."""
-    detector = models.detector.require()
+    """Pre-label an image with boxes for the project's own labels."""
     image = get_image_or_404(db, image_id)
-    pil_image = _image_loader(storage, image)
-
     start = time.perf_counter()
-    detections = detector.detect(pil_image, conf=body.conf)
+    found, ignored, used = _detect_for_project(
+        models, image.project.classes, lambda: _image_loader(storage, image), body.conf
+    )
     latency = _ms_since(start)
 
-    kept, ignored = map_to_project_classes(detections, image.project.classes)
-    suggestions = []
-    for d in kept:
-        box = clip_box(d.bbox, image.width, image.height)
-        if box is not None:
-            suggestions.append(Suggestion(class_name=d.class_name, bbox=box, score=d.score))
+    suggestions = [s for f in found if (s := _suggestion(f, image)) is not None]
     logger.info(
-        "suggest image=%s model=%s conf=%.2f boxes=%d ignored=%d latency=%.0fms",
-        image_id, detector.name, body.conf, len(suggestions), sum(ignored.values()), latency,
+        "suggest image=%s models=%s conf=%.2f boxes=%d ignored=%d latency=%.0fms",
+        image_id, "+".join(used), body.conf, len(suggestions), sum(ignored.values()), latency,
     )  # fmt: skip
     return SuggestResult(
-        model_version_id=models.detector.model_version_id,
+        model_version_id=suggestions[0].model_version_id if suggestions else None,
+        models=used,
         latency_ms=latency,
         suggestions=suggestions,
         ignored=dict(ignored),
@@ -144,27 +211,66 @@ def click_box(
     storage: Storage = Depends(get_storage),
     models: ModelManager = Depends(get_models),
 ) -> ClickBoxResult:
-    """Smart click: the detector's best box (with its class) under the clicked point."""
-    detector = models.detector.require()
+    """Smart click: the best box (with its label) under the clicked point."""
     image = get_image_or_404(db, image_id)
+    classes = image.project.classes
     start = time.perf_counter()
-    key = (image.id, detector.name)
-    detections = _click_cache.get(key)
-    if detections is None:
-        detections = detector.detect(_image_loader(storage, image), conf=CLICK_MIN_CONF)
-        _click_cache.put(key, detections)
-    kept, _ = map_to_project_classes(detections, image.project.classes)
-    best = pick_box_at_point(kept, body.point, body.exclude)
-    box = clip_box(best.bbox, image.width, image.height) if best else None
+    # The labels and the loaded models decide the result, so they are part of the cache key.
+    key = (image.id, tuple(classes), models.detector.name, models.general.name)
+    found = _click_cache.get(key)
+    if found is None:
+        found, _, _ = _detect_for_project(
+            models, classes, lambda: _image_loader(storage, image), CLICK_MIN_CONF
+        )
+        _click_cache.put(key, found)
+    by_detection = {id(f.detection): f for f in found}
+    best = pick_box_at_point([f.detection for f in found], body.point, body.exclude)
+    suggestion = _suggestion(by_detection[id(best)], image) if best is not None else None
     latency = _ms_since(start)
-    logger.info("click-box image=%s found=%s latency=%.0fms", image_id, box is not None, latency)
-    return ClickBoxResult(
-        model_version_id=models.detector.model_version_id,
-        latency_ms=latency,
-        suggestion=Suggestion(class_name=best.class_name, bbox=box, score=best.score)
-        if best and box
-        else None,
+    logger.info(
+        "click-box image=%s found=%s latency=%.0fms", image_id, suggestion is not None, latency
     )
+    return ClickBoxResult(
+        model_version_id=suggestion.model_version_id if suggestion else None,
+        latency_ms=latency,
+        suggestion=suggestion,
+    )
+
+
+@router.post("/images/{image_id}/find-similar", response_model=FindSimilarResult)
+def find_similar(
+    image_id: int,
+    body: FindSimilarRequest,
+    db: Session = Depends(get_db),
+    storage: Storage = Depends(get_storage),
+    models: ModelManager = Depends(get_models),
+) -> FindSimilarResult:
+    """Find more objects like the example boxes, for labels that no model knows by name."""
+    general = models.general.require()
+    image = get_image_or_404(db, image_id)
+    if body.class_name not in image.project.classes:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            f"'{body.class_name}' is not a label of this project",
+        )
+    pil_image = _image_loader(storage, image)
+    start = time.perf_counter()
+    detections = general.find_similar(pil_image, body.examples, conf=body.conf)
+    latency = _ms_since(start)
+
+    # The examples and other labelled objects are found too: suggest only NEW objects.
+    fresh = drop_overlapping(detections, [*body.exclude, *body.examples])
+    version = models.general.model_version_id
+    suggestions = [
+        s
+        for d in fresh
+        if (s := _suggestion(_Found(d, general.name, version), image, body.class_name)) is not None
+    ]
+    logger.info(
+        "find-similar image=%s examples=%d found=%d latency=%.0fms",
+        image_id, len(body.examples), len(suggestions), latency,
+    )  # fmt: skip
+    return FindSimilarResult(model_version_id=version, latency_ms=latency, suggestions=suggestions)
 
 
 @router.post("/images/{image_id}/segment/prepare", status_code=status.HTTP_204_NO_CONTENT)

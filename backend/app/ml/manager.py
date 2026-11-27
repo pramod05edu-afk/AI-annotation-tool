@@ -23,7 +23,7 @@ from sqlalchemy import select, update
 
 from app.config import Settings
 from app.db import SessionLocal
-from app.ml.base import Detector, Segmenter
+from app.ml.base import Detector, OpenVocabDetector, Segmenter
 from app.ml.download import ensure_model
 from app.models import ModelTask, ModelVersion
 
@@ -40,7 +40,7 @@ class ModelState(StrEnum):
 
 @dataclass
 class ModelSlot(Generic[T]):
-    label: str  # for error messages: "detector" / "segmenter"
+    label: str  # for error messages: "detector" / "general detector" / "segmenter"
     state: ModelState = ModelState.DISABLED
     model: T | None = None
     name: str | None = None
@@ -63,15 +63,20 @@ class ModelSlot(Generic[T]):
 class ModelManager:
     detector: ModelSlot[Detector] = field(default_factory=lambda: ModelSlot("detector"))
     segmenter: ModelSlot[Segmenter] = field(default_factory=lambda: ModelSlot("segmenter"))
+    # The general open-vocabulary detector: labels the fine-tuned specialist does not know.
+    general: ModelSlot[OpenVocabDetector] = field(
+        default_factory=lambda: ModelSlot("general detector")
+    )
 
     def start_loading(self, settings: Settings) -> None:
-        self.detector.state = self.segmenter.state = ModelState.LOADING
+        self.detector.state = self.segmenter.state = self.general.state = ModelState.LOADING
         threading.Thread(target=self._load_all, args=(settings,), daemon=True).start()
 
     def _load_all(self, settings: Settings) -> None:
         # Imported here: PyTorch/Ultralytics take seconds to import and tests never need them.
         from app.ml.sam import MobileSamSegmenter
         from app.ml.yolo import YoloDetector
+        from app.ml.yoloe import YoloeDetector
 
         weights_dir = Path(settings.weights_dir)
         detector_path = weights_dir / settings.detector_weights
@@ -92,6 +97,13 @@ class ModelManager:
             segmenter.warm_up()
             return segmenter
 
+        def load_general() -> YoloeDetector:
+            _prepare_text_encoder(weights_dir, settings.general_text_encoder)
+            general = YoloeDetector(weights_dir / settings.general_weights)
+            general.warm_up()
+            return general
+
+        # The specialist and SAM first (small, fast): the largest download comes last.
         self._load(
             self.detector, load_detector, ModelTask.DETECT, detector_path,
             # Read AFTER loading: on a fresh clone the file arrives with the model download.
@@ -100,6 +112,10 @@ class ModelManager:
         self._load(
             self.segmenter, load_segmenter, ModelTask.SEGMENT,
             weights_dir / settings.segmenter_weights, metrics=dict,
+        )  # fmt: skip
+        self._load(
+            self.general, load_general, ModelTask.DETECT_OPEN,
+            weights_dir / settings.general_weights, metrics=dict,
         )  # fmt: skip
 
     @staticmethod
@@ -120,6 +136,22 @@ class ModelManager:
         except Exception as error:  # any failure: keep the API running without this model
             slot.state, slot.error = ModelState.FAILED, str(error)
             logger.exception("Could not load the %s", slot.label)
+
+
+def _prepare_text_encoder(weights_dir: Path, file_name: str) -> None:
+    """Make YOLOE find its text encoder in our weights folder (downloading it once if missing).
+
+    Ultralytics looks for it in the current directory and then in ITS weights folder, and
+    downloads into the current directory: point its weights folder at ours, and download to
+    an explicit path first, so the file lands in the mounted weights/ volume and survives
+    container restarts.
+    """
+    from ultralytics.utils import SETTINGS
+    from ultralytics.utils.downloads import attempt_download_asset
+
+    if SETTINGS["weights_dir"] != str(weights_dir):
+        SETTINGS.update(weights_dir=str(weights_dir))  # type: ignore[no-untyped-call]
+    attempt_download_asset(str(weights_dir / file_name))
 
 
 def _detector_metrics(weights_dir: Path, detector_path: Path) -> dict[str, Any]:

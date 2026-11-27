@@ -62,8 +62,9 @@ services:
       DETECTOR_WEIGHTS: ${DETECTOR_WEIGHTS:-yolo11n_helmet_openvino_model}
       OMP_NUM_THREADS: "4" # match the CPU limit below (PyTorch would otherwise use all host cores)
     volumes:
-      # The repo's weights/ folder (git-ignored): put the trained detector here.
-      # MobileSAM is downloaded into it automatically on the first start.
+      # The repo's weights/ folder (git-ignored). On the first start the fine-tuned detector
+      # (GitHub Release), MobileSAM and YOLOE with its text encoder (Ultralytics releases,
+      # ~330 MB in total) are downloaded into it automatically; later starts reuse the files.
       - ./weights:/app/weights
     ports:
       - "8000:8000"
