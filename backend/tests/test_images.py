@@ -108,3 +108,41 @@ def test_delete_image_removes_file(
     assert client.delete(f"/api/images/{image['id']}").status_code == 204
     assert client.get(f"/api/images/{image['id']}").status_code == 404
     assert storage.objects == {}
+
+
+def _tiff_16bit(width: int = 40, height: int = 30) -> bytes:
+    """A 16-bit greyscale TIFF with a faint gradient, as a microscope or scanner writes it."""
+    import io
+
+    import numpy as np
+    from PIL import Image as PILImage
+
+    pixels = np.tile(np.linspace(1000, 3000, width, dtype=np.uint16), (height, 1))
+    out = io.BytesIO()
+    PILImage.fromarray(pixels).save(out, format="TIFF")  # uint16 -> 16-bit greyscale
+    return out.getvalue()
+
+
+def test_tiff_and_bmp_are_stored_as_png(
+    client: TestClient, project: dict[str, Any], storage: FakeStorage
+) -> None:
+    files = [
+        ("files", ("scan.tif", _tiff_16bit(), "image/tiff")),
+        ("files", ("old.bmp", make_image(50, 20, "BMP"), "image/bmp")),
+    ]
+    body = client.post(f"/api/projects/{project['id']}/images", files=files).json()
+    uploaded = {i["filename"]: i for i in body["uploaded"]}
+    assert set(uploaded) == {"scan.png", "old.png"}
+    assert uploaded["scan.png"]["content_type"] == "image/png"
+    assert (uploaded["scan.png"]["width"], uploaded["scan.png"]["height"]) == (40, 30)
+    assert (uploaded["old.png"]["width"], uploaded["old.png"]["height"]) == (50, 20)
+
+    # The 16-bit range is stretched to the full 8-bit range: dark stays dark, bright gets white.
+    import io
+
+    import numpy as np
+    from PIL import Image as PILImage
+
+    stored = client.get(f"/api/images/{uploaded['scan.png']['id']}/file").content
+    pixels = np.asarray(PILImage.open(io.BytesIO(stored)))
+    assert (int(pixels.min()), int(pixels.max())) == (0, 255)
