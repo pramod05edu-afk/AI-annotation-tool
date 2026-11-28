@@ -1,6 +1,7 @@
 from collections.abc import Callable
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from tests.conftest import FakeStorage
@@ -67,6 +68,67 @@ def test_cannot_remove_class_still_in_use(
 
     unused = client.patch(f"/api/projects/{project['id']}", json={"classes": ["head"]})
     assert unused.status_code == 200
+
+
+def test_rename_moves_existing_annotations(
+    client: TestClient, project: dict[str, Any], upload: Upload
+) -> None:
+    image = upload(project["id"])
+    boxes = [
+        {"class_name": name, "geometry": {"type": "box", "bbox": [1, 1, 10, 10]}}
+        for name in ("helmet", "head", "head")
+    ]
+    client.put(f"/api/images/{image['id']}/annotations", json=boxes)
+
+    response = client.patch(
+        f"/api/projects/{project['id']}",
+        json={
+            "classes": ["hard hat", "bare head", "vest"],
+            "renames": {"helmet": "hard hat", "head": "bare head"},
+        },
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["classes"] == ["hard hat", "bare head", "vest"]
+    saved = client.get(f"/api/images/{image['id']}/annotations").json()
+    assert sorted(a["class_name"] for a in saved) == ["bare head", "bare head", "hard hat"]
+
+
+def test_swapping_two_label_names_keeps_the_annotations_apart(
+    client: TestClient, project: dict[str, Any], upload: Upload
+) -> None:
+    image = upload(project["id"])
+    box = {"class_name": "head", "geometry": {"type": "box", "bbox": [1, 1, 10, 10]}}
+    client.put(f"/api/images/{image['id']}/annotations", json=[box])
+    response = client.patch(
+        f"/api/projects/{project['id']}",
+        json={"classes": ["head", "helmet"], "renames": {"helmet": "head", "head": "helmet"}},
+    )
+    assert response.status_code == 200, response.text
+    saved = client.get(f"/api/images/{image['id']}/annotations").json()
+    assert [a["class_name"] for a in saved] == ["helmet"]
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"renames": {"helmet": "hat"}},  # renames without the new list
+        {"classes": ["head"], "renames": {"helmet": "hat"}},  # new name missing from the list
+        {"classes": ["x", "head"], "renames": {"helmet": "x", "head": "x"}},  # two into one
+    ],
+)
+def test_invalid_renames_are_rejected(
+    client: TestClient, project: dict[str, Any], body: dict[str, Any]
+) -> None:
+    assert client.patch(f"/api/projects/{project['id']}", json=body).status_code == 422
+
+
+def test_renaming_an_unknown_label_is_rejected(client: TestClient, project: dict[str, Any]) -> None:
+    response = client.patch(
+        f"/api/projects/{project['id']}",
+        json={"classes": ["helmet", "head", "cat"], "renames": {"dog": "cat"}},
+    )
+    assert response.status_code == 422
+    assert "dog" in response.json()["detail"]
 
 
 def test_delete_project_removes_images_and_files(
