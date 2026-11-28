@@ -11,6 +11,7 @@ from pydantic import (
     StringConstraints,
     ValidationInfo,
     field_validator,
+    model_validator,
 )
 
 from app.models import AnnotationMode, AnnotationSource, ImageStatus, ModelTask
@@ -44,13 +45,30 @@ class ProjectCreate(BaseModel):
 
 class ProjectUpdate(BaseModel):
     name: Name | None = None
+    # The new label list (its order sets the keyboard shortcuts 1-9).
     classes: list[ClassName] | None = Field(default=None, min_length=1, max_length=100)
+    # Renamed labels, old name -> new name: existing annotations move to the new name.
+    # Without this, a rename would look like "remove a label that is still in use".
+    renames: dict[str, ClassName] = Field(default_factory=dict, max_length=100)
     annotation_mode: AnnotationMode | None = None  # send null explicitly to unlock the mode
 
     @field_validator("classes")
     @classmethod
     def _check_classes(cls, value: list[str] | None) -> list[str] | None:
         return None if value is None else _unique(value)
+
+    @model_validator(mode="after")
+    def _renames_fit_the_new_list(self) -> "ProjectUpdate":
+        if not self.renames:
+            return self
+        if self.classes is None:
+            raise ValueError("renames need the new 'classes' list")
+        missing = sorted(set(self.renames.values()) - set(self.classes))
+        if missing:
+            raise ValueError(f"renamed labels must be in 'classes': {missing}")
+        if len(set(self.renames.values())) != len(self.renames):
+            raise ValueError("two labels cannot be renamed to the same name")
+        return self
 
 
 class ProjectRead(ORMModel):

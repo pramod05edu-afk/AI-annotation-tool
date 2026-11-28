@@ -4,7 +4,7 @@ import logging
 
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -101,8 +101,13 @@ def update_project(
 ) -> ProjectRead:
     project = get_project_or_404(db, project_id)
     if body.classes is not None:
-        # Refuse to remove a class that existing annotations still use.
-        removed = set(project.classes) - set(body.classes)
+        unknown = sorted(set(body.renames) - set(project.classes))
+        if unknown:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT, f"Cannot rename unknown labels: {unknown}"
+            )
+        # Refuse to remove a class that existing annotations still use (renamed ones move).
+        removed = set(project.classes) - set(body.classes) - set(body.renames)
         if removed:
             in_use = db.scalars(
                 select(Annotation.class_name)
@@ -113,8 +118,20 @@ def update_project(
             if in_use:
                 raise HTTPException(
                     status.HTTP_409_CONFLICT,
-                    f"Classes still used by annotations: {sorted(in_use)}",
+                    f"Labels still used by boxes: {', '.join(sorted(in_use))}. Delete or relabel"
+                    " those boxes first, or rename the label instead.",
                 )
+        renames = {old: new for old, new in body.renames.items() if old != new}
+        if renames:
+            # One statement with CASE, so even a swap (a -> b, b -> a) is applied correctly.
+            db.execute(
+                update(Annotation)
+                .where(
+                    Annotation.image_id.in_(select(Image.id).where(Image.project_id == project_id)),
+                    Annotation.class_name.in_(renames),
+                )
+                .values(class_name=case(renames, value=Annotation.class_name))
+            )
         project.classes = body.classes
     if body.name is not None:
         project.name = body.name

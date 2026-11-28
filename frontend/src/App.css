@@ -1797,3 +1797,65 @@ input[type='range'] {
   background: var(--paper);
   border-bottom: 1px solid var(--line);
 }
+
+/* ---------- edit labels dialog ---------- */
+
+.chip-button {
+  padding: 3px 9px;
+  font: 500 0.72rem var(--mono);
+  border-radius: 6px;
+  border-style: dashed;
+  color: var(--ink-2);
+}
+
+.label-editor ol {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.label-editor li {
+  display: grid;
+  grid-template-columns: 10px 26px minmax(0, 1fr) 92px 28px 28px 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.label-editor li input {
+  padding: 7px 10px;
+}
+
+.label-editor li kbd {
+  justify-self: center;
+}
+
+.label-note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font: 0.68rem var(--mono);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.label-note.new {
+  color: var(--ok);
+}
+
+.label-add {
+  display: flex;
+  gap: 8px;
+}
+
+.label-add input {
+  flex: 1;
+}
+
+.label-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}

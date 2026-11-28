@@ -79,6 +79,9 @@ releases (~330 MB in total, first start only).
 - Projects with **their own labels** (any names, any number) for **any kind of image**;
   drag-and-drop upload (PNG / JPEG / WEBP, validated by
   content), thumbnail grid with status (*to do / in progress / done*) and progress bar.
+- **Edit labels** at any time: add (e.g. `airplane` when the first aeroplane shows up), rename,
+  reorder (order = shortcuts `1`–`9`) or remove. A rename moves the existing boxes to the new
+  name; a label still used by boxes cannot be removed.
 
 **Annotator**
 - Boxes and polygons on a zoomable, pannable canvas; select, move, resize, edit polygon points.
@@ -218,7 +221,7 @@ evaluation and OpenVINO export. Guide: [docs/training.md](docs/training.md).
 docker compose up -d postgres storage   # API tests use a real PostgreSQL (host port 5433)
 cd backend
 uv sync
-uv run pytest                            # 131 tests; creates and migrates annotator_test
+uv run pytest                            # 137 tests; creates and migrates annotator_test
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
 uv run alembic revision --autogenerate -m "describe change"   # after changing app/models.py
 
@@ -241,7 +244,7 @@ Interactive docs: http://localhost:3000/api/docs
 | Method & path | Purpose |
 |---|---|
 | `GET /api/health` | Database and storage status |
-| `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/{id}` | Projects, label classes, optional fixed annotation mode |
+| `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/{id}` | Projects, labels (add / rename with `renames` / reorder / remove unused), optional fixed annotation mode |
 | `POST /api/projects/{id}/images` | Upload images (validated by content: PNG/JPEG/WEBP, size limit) |
 | `GET /api/projects/{id}/images?status=` | List images with annotation counts |
 | `GET/PATCH/DELETE /api/images/{id}`, `GET /api/images/{id}/file` | Image details, status, file stream |

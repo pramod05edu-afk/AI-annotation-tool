@@ -1,4 +1,4 @@
-import { ChevronLeft, Download, Play, Trash2, Upload } from 'lucide-react'
+import { ChevronLeft, Download, Pencil, Play, Trash2, Upload } from 'lucide-react'
 import { type DragEvent, useCallback, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
@@ -13,6 +13,8 @@ import {
 } from '../api/client'
 import type { Mode } from '../annotator/interactionLog'
 import { classColor } from '../annotator/shapes'
+import EditLabels from '../components/EditLabels'
+import Modal from '../components/Modal'
 import ModeSwitch from '../components/ModeSwitch'
 import ProgressBar from '../components/ProgressBar'
 import { useToast } from '../components/toast'
@@ -173,6 +175,8 @@ export default function ProjectPage() {
   const projectId = Number(useParams().projectId)
   const navigate = useNavigate()
   const [filter, setFilter] = useState<ImageStatus | 'all'>('all')
+  const [editingLabels, setEditingLabels] = useState(false)
+  const toast = useToast()
   // Same remembered setting as in the annotator: choose the mode BEFORE opening an image.
   const [mode, setMode] = usePersistentState<Mode>('annotator.mode', 'assisted')
 
@@ -244,6 +248,9 @@ export default function ProjectPage() {
                 <kbd>{i + 1}</kbd> {c}
               </span>
             ))}
+            <button type="button" className="chip-button" onClick={() => setEditingLabels(true)}>
+              <Pencil size={12} /> Edit labels
+            </button>
           </p>
         </div>
         <div className="actions">
@@ -299,6 +306,19 @@ export default function ProjectPage() {
         ))}
       </div>
       {images.data && shown.length === 0 && <p className="muted">No images here.</p>}
+
+      {editingLabels && (
+        <Modal title="Edit labels" onClose={() => setEditingLabels(false)}>
+          <EditLabels
+            project={project.data}
+            onSaved={(saved) => {
+              setEditingLabels(false)
+              project.reload()
+              toast('success', 'Labels saved', saved.classes.join(', '))
+            }}
+          />
+        </Modal>
+      )}
     </main>
   )
 }

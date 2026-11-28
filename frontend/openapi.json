@@ -944,6 +944,16 @@
               }
             ],
             "title": "Name"
+          },
+          "renames": {
+            "additionalProperties": {
+              "maxLength": 100,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxProperties": 100,
+            "title": "Renames",
+            "type": "object"
           }
         },
         "title": "ProjectUpdate",

@@ -668,6 +668,10 @@ export interface components {
             classes?: string[] | null;
             /** Name */
             name?: string | null;
+            /** Renames */
+            renames?: {
+                [key: string]: string;
+            };
         };
         /** SegmentRequest */
         SegmentRequest: {
