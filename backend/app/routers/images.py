@@ -5,6 +5,7 @@ import logging
 import uuid
 from pathlib import PurePath
 
+import numpy as np
 from botocore.exceptions import BotoCoreError, ClientError
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -28,11 +29,23 @@ ALLOWED_FORMATS = {
     "JPEG": ("image/jpeg", "jpg"),
     "WEBP": ("image/webp", "webp"),
 }
+# Formats browsers cannot display (TIFF, e.g. from microscopes or scanners; BMP): accepted,
+# but stored as PNG so the annotator, the models and the export all see a normal image.
+CONVERTED_FORMATS = {"TIFF", "BMP"}
 MAX_FILES_PER_REQUEST = 200
 
 
 class ImageValidationError(Exception):
     """The uploaded bytes are not an acceptable image."""
+
+
+def _format_of(data: bytes) -> str | None:
+    """The image format PIL recognises in these bytes (None if it is no image at all)."""
+    try:
+        with PILImage.open(io.BytesIO(data)) as image:
+            return image.format
+    except (PILImage.DecompressionBombError, OSError, SyntaxError, ValueError):
+        return None
 
 
 def inspect_image(data: bytes) -> tuple[str, str, int, int]:
@@ -46,10 +59,31 @@ def inspect_image(data: bytes) -> tuple[str, str, int, int]:
         raise ImageValidationError("not a readable image file") from error
     if image_format not in ALLOWED_FORMATS:
         raise ImageValidationError(
-            f"format {image_format or 'unknown'} not allowed (PNG, JPEG, WEBP)"
+            f"format {image_format or 'unknown'} not allowed (PNG, JPEG, WEBP, TIFF, BMP)"
         )
     content_type, extension = ALLOWED_FORMATS[image_format]
     return content_type, extension, width, height
+
+
+def to_png(data: bytes) -> bytes:
+    """A TIFF / BMP as PNG (first page only). High bit-depth greyscale (16-bit, float), common in
+    microscopy and medical imaging, is stretched to 8 bit, so faint images stay visible."""
+    try:
+        with PILImage.open(io.BytesIO(data)) as source:
+            source.seek(0)
+            image: PILImage.Image = source
+            if source.mode in ("I;16", "I;16B", "I;16L", "I", "F"):
+                pixels = np.asarray(source, dtype=np.float64)
+                low, high = float(pixels.min()), float(pixels.max())
+                scaled = (pixels - low) / (high - low) * 255 if high > low else pixels * 0
+                image = PILImage.fromarray(scaled.astype(np.uint8))  # 2-D uint8 = greyscale
+            elif source.mode not in ("RGB", "RGBA", "L", "LA"):
+                image = source.convert("RGB")
+            out = io.BytesIO()
+            image.save(out, format="PNG")
+    except (OSError, SyntaxError, ValueError) as error:
+        raise ImageValidationError("not a readable image file") from error
+    return out.getvalue()
 
 
 def _with_counts(db: Session, images: list[Image]) -> list[ImageRead]:
@@ -100,6 +134,9 @@ def upload_images(
             )
             continue
         try:
+            if _format_of(data) in CONVERTED_FORMATS:
+                data = to_png(data)
+                filename = f"{PurePath(filename).stem}.png"[:255]
             content_type, extension, width, height = inspect_image(data)
         except ImageValidationError as error:
             rejected.append(UploadRejected(filename=filename, reason=str(error)))

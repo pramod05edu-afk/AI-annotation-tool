@@ -25,7 +25,16 @@ const STATUS_LABEL: Record<ImageStatus, string> = {
   in_progress: 'In progress',
   done: 'Done',
 }
-const ACCEPTED = ['image/png', 'image/jpeg', 'image/webp']
+// TIFF and BMP are converted to PNG by the server (browsers cannot display them).
+const ACCEPTED = [
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/tiff',
+  'image/bmp',
+  '.tif',
+  '.tiff',
+]
 
 function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: () => void }) {
   const input = useRef<HTMLInputElement>(null)
@@ -100,7 +109,7 @@ function UploadZone({ projectId, onUploaded }: { projectId: number; onUploaded: 
           <button type="button" className="link" onClick={() => input.current?.click()}>
             choose files
           </button>{' '}
-          <span className="muted">(PNG, JPEG, WEBP)</span>
+          <span className="muted">(PNG, JPEG, WEBP, TIFF, BMP)</span>
         </p>
       )}
       {result && (

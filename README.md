@@ -77,8 +77,9 @@ releases (~330 MB in total, first start only).
 
 **Projects and images**
 - Projects with **their own labels** (any names, any number) for **any kind of image**;
-  drag-and-drop upload (PNG / JPEG / WEBP, validated by
-  content), thumbnail grid with status (*to do / in progress / done*) and progress bar.
+  drag-and-drop upload (PNG / JPEG / WEBP, validated by content; TIFF incl. 16-bit greyscale
+  and BMP are converted to PNG), thumbnail grid with status (*to do / in progress / done*) and
+  progress bar.
 - **Edit labels** at any time: add (e.g. `airplane` when the first aeroplane shows up), rename,
   reorder (order = shortcuts `1`–`9`) or remove. A rename moves the existing boxes to the new
   name; a label still used by boxes cannot be removed.
@@ -221,7 +222,7 @@ evaluation and OpenVINO export. Guide: [docs/training.md](docs/training.md).
 docker compose up -d postgres storage   # API tests use a real PostgreSQL (host port 5433)
 cd backend
 uv sync
-uv run pytest                            # 137 tests; creates and migrates annotator_test
+uv run pytest                            # 138 tests; creates and migrates annotator_test
 uv run ruff check . && uv run ruff format --check . && uv run mypy app
 uv run alembic revision --autogenerate -m "describe change"   # after changing app/models.py
 
@@ -245,7 +246,7 @@ Interactive docs: http://localhost:3000/api/docs
 |---|---|
 | `GET /api/health` | Database and storage status |
 | `POST/GET /api/projects`, `GET/PATCH/DELETE /api/projects/{id}` | Projects, labels (add / rename with `renames` / reorder / remove unused), optional fixed annotation mode |
-| `POST /api/projects/{id}/images` | Upload images (validated by content: PNG/JPEG/WEBP, size limit) |
+| `POST /api/projects/{id}/images` | Upload images (validated by content: PNG/JPEG/WEBP, TIFF/BMP converted to PNG, size limit) |
 | `GET /api/projects/{id}/images?status=` | List images with annotation counts |
 | `GET/PATCH/DELETE /api/images/{id}`, `GET /api/images/{id}/file` | Image details, status, file stream |
 | `GET/PUT /api/images/{id}/annotations` | Load / replace all annotations of an image (boxes, polygons) |
@@ -259,6 +260,10 @@ Interactive docs: http://localhost:3000/api/docs
 | `POST /api/logs` | Interaction events for the effort study |
 
 ## Licences and credits
+
+This project is licensed under the [GNU AGPL-3.0](LICENSE), the same licence as Ultralytics,
+which it uses for training and inference.
+
 
 - Dataset: Safety Helmet Detection, CC0 (Kaggle `andrewmvd`, from Make ML).
 - [Ultralytics YOLO](https://github.com/ultralytics/ultralytics) (AGPL-3.0): detector training
